@@ -1,1 +1,1 @@
-# sMRI-Processing-Pipeline-Python
+# sMRI-Processing-Pipeline-Nipype-Python
