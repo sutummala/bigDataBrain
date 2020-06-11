@@ -1,5 +1,5 @@
 # code created by Sudhakar on May 2020
-# generate test images
+# generate test images and compute registration cost
 
 import os
 import sys
@@ -24,19 +24,19 @@ ref = refpath+'/MNI152_T1_1mm.nii.gz' # Whole brain MNI
 def generate_new_param(scales, trans, rots, t):
     ''' generate new scales, trans, rots'''
     
-    if t <= 2:
+    if t <= .2*t:
         scales_new = scales + (np.random.rand(3) * 0.1) 
         trans_new = trans + (np.random.randn(3) * 5)
         rots_new = rots + (np.random.randn(3) * 0.1)
-    elif t > 2 and t <= 4:
+    elif t > .2*t and t <= .4*t:
         scales_new = scales 
         trans_new = trans + (np.random.randn(3) * 5)
         rots_new = rots + (np.random.randn(3) * 0.1)
-    elif t > 4 and t <= 6:
+    elif t > .4*t and t <= .6*t:
         scales_new = scales + (np.random.rand(3) * 0.1) 
         trans_new = trans 
         rots_new = rots + (np.random.randn(3) * 0.1)
-    elif t > 6 and t <= 8:
+    elif t > .6*t and t <= .8*t:
         scales_new = scales + (np.random.rand(3) * 0.1) 
         trans_new = trans + (np.random.randn(3) * 5)
         rots_new = rots 
@@ -80,7 +80,7 @@ def generate_coreg_test_images(img_type, no_of_test_images):
             scales, trans, rots = dctm.decompose(mat_orig, angles = True) # decomposing the transformation matrix into scales, translations and rotations
             for t in range(no_of_test_images):
                 testfile = f'{test_matfile[0:-4]}.test{t+1}.mat'
-                outfile = f'{ref_file[0:-4]}.test{t+1}.nii'
+                outfile = f'{moving_file[0:-4]}.test{t+1}.nii' # ref_file should be changed to moving_file (in co-ordination with line 64 of check_registration.py)
                 
                 scales_new, trans_new, rots_new = generate_new_param(scales, trans, rots, t)
                                 
@@ -112,7 +112,7 @@ def compute_coreg_test_cost_vectors(cost_func, image_type):
         movingfiles = os.listdir(required_folder)
         for movingfile in movingfiles:
             print(f'{subject}, checking file: {movingfile}')
-            global_cost, local_cost = rcf.do_check_coregistration(raw_path+'/'+ref_file, required_folder+'/'+movingfile, cost_func, False, True, True)
+            global_cost, local_cost = rcf.do_check_coregistration(raw_path+'/'+ref_file, required_folder+'/'+movingfile, cost_func, True, True, True)
             cost_file = movingfile[0:-4]+f'.{cost_func}.data'       
             np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.3f')
 
@@ -213,17 +213,17 @@ image_types = ['hrT1', 'hrT2', 'hrFLAIR']
 costs = ['ncc', 'nmi']
 reg_types = ['align', 'mni']
 
-# for image_type in image_types:
-#     for reg_type in reg_types:
-#         # generating test images for each img_type
-#         generate_test_images(image_type, reg_type, no_of_test_images = 10) # generate 10 test images for each subject
-#         for cost in costs:
-#             # computing cost for test images (T1, T2 and FLAIR)
-#             compute_test_cost_vectors(reg_type, cost, image_type)
+for image_type in image_types:
+    for reg_type in reg_types:
+        # generating test images for each img_type
+        generate_test_images(image_type, reg_type, no_of_test_images = 10) # generate 10 test images for each subject
+        for cost in costs:
+            # computing cost for test images (T1, T2 and FLAIR)
+            compute_test_cost_vectors(reg_type, cost, image_type)
             
 for image_type in image_types[1:]:
     # genrating test images for co-reg of T2/FLAIR brain to T1 brain
-    generate_coreg_test_images(image_type, no_of_test_images = 10)
+    generate_coreg_test_images(image_type, no_of_test_images = 10) # generate 10 test images for each subject
     for cost in costs:
         # computing cost for test images of T2/FLAIR brain aligned to T1 brain
         compute_coreg_test_cost_vectors(cost, image_type)

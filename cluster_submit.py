@@ -12,7 +12,7 @@ for subject in os.listdir(data_dir):
     cmd += " "+"/usr/users/tummala/python/gen_test_images_compute_reg_cost_grid.py"
     cmd += f' {data_dir} {subject}'
     
-    os.system(f'nmri_qsub -runtime 2500 -title BIG-DATA-{subject} {cmd}')
+    os.system(f'nmri_qsub -runtime 2880 -title BIG-DATA-test-{subject} {cmd}')
         
 
       

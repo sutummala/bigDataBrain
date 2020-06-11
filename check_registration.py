@@ -1,5 +1,5 @@
 # code created by Sudhakar on May 2020
-# generate images and check registration
+# check registration
 
 
 import os
@@ -10,8 +10,8 @@ from sklearn import metrics
 subpath1 = '/usr/users/tummala/bigdata1'
 subpath2 = '/usr/users/tummala/HCP-YA'
 
-subpath3 = '/usr/users/tummala/bigdata'
-subpath4 = '/usr/users/tummala/HCP-YA-test'
+# subpath3 = '/usr/users/tummala/bigdata'
+# subpath4 = '/usr/users/tummala/HCP-YA-test'
 
 def remove_nan(data): 
     # removes nan values if any
@@ -24,7 +24,6 @@ def get_coreg_cost_vectors(cost_func, subpath, tag):
     local_cost_vector = []
     for index, subject in enumerate(subjects, start=1):
         cost_folder = subpath+'/'+subject+'/cost'
-        #print('{}-{}, {}-{}'.format(index, subject, reg_type, cost_func))
         data_files = os.listdir(cost_folder)
         for data_file in data_files:
             if 'alignedToT1' in data_file and (tag in data_file and cost_func in data_file):
@@ -62,7 +61,7 @@ def get_coreg_test_cost_vectors(cost_func, subpath, tag):
         if os.path.exists(cost_folder) and os.listdir(cost_folder):
             data_files = os.listdir(cost_folder)
             for data_file in data_files:
-                if ('hrT1' in data_file and cost_func in data_file):
+                if (tag in data_file and cost_func in data_file): # tag can be 'hrT2' and 'hrFLAIR' (if outfile is changed in line 83 of gen_test_images....._grid.py)
                     #print(reg_type, tag, cost_func)
                     cost_data = np.loadtxt(cost_folder+'/'+data_file)
                     global_cost_vector.append(cost_data[0])
@@ -106,13 +105,15 @@ def compute_cutoff_auc(data1, data2, *tags):
     labels = np.concatenate([np.ones(len(data1)), np.zeros(len(data2))])
     print(f'{len(data1)}, {len(data2)}')
     fpr, tpr, thresholds = metrics.roc_curve(labels, np.concatenate([data1, data2]), pos_label = 1)
+    for fp, tp, th in zip(fpr, tpr, thresholds):
+        print(fp,tp,th)
     
     print(f'Threshold for {tags[2]}-{tags[1]}-{tags[3]}-{tags[0]} is: {thresholds[np.argmax(tpr-fpr)]}, AUC is: {metrics.auc(fpr, tpr)}\n')
     
 
 if __name__ == '__main__':
     
-    costs = ['ncc', 'nmi']
+    costs = ['nmi']
     reg_types = ['align', 'mni']
 
     for reg_type in reg_types:
@@ -138,17 +139,17 @@ if __name__ == '__main__':
             # getting test values for hrT1, hrT2 and hrFLAIR for bigdata 
             global_test_cost_vector_bigdata_T1, local_test_cost_vector_bigdata_T1 = get_test_cost_vectors(cost, reg_type, subpath1, 'hrT1') # T1 to MNI
             global_test_cost_vector_bigdata_FLAIR, local_test_cost_vector_bigdata_FLAIR = get_test_cost_vectors(cost, reg_type, subpath1, 'hrFLAIR') # FLAIR to MNI
-            global_test_cost_vector_bigdata_FLAIRtoT1, local_test_cost_vector_bigdata_FLAIRtoT1 = get_coreg_test_cost_vectors(cost, subpath3, 'hrFLAIR') # FLAIR brain to T1 brain (only align)
+            global_test_cost_vector_bigdata_FLAIRtoT1, local_test_cost_vector_bigdata_FLAIRtoT1 = get_coreg_test_cost_vectors(cost, subpath1, 'hrFLAIR') # FLAIR brain to T1 brain (only align)
             
             # HCPYA
             global_test_cost_vector_hcpya_T1, local_test_cost_vector_hcpya_T1 = get_test_cost_vectors(cost, reg_type, subpath2, 'hrT1') # T1 to MNI
             global_test_cost_vector_hcpya_T2, local_test_cost_vector_hcpya_T2 = get_test_cost_vectors(cost, reg_type, subpath2, 'hrT2') # T2 to MNI
-            global_test_cost_vector_hcpya_T2toT1, local_test_cost_vector_hcpya_T2toT1 = get_coreg_test_cost_vectors(cost, subpath4, 'hrT2') # T2 to T1 (only align)
+            global_test_cost_vector_hcpya_T2toT1, local_test_cost_vector_hcpya_T2toT1 = get_coreg_test_cost_vectors(cost, subpath2, 'hrT2') # T2 to T1 (only align)
             
-            if True:
+            if False:
                 ap.plot_cost([local_cost_vector_bigdata_T1, local_test_cost_vector_bigdata_T1], cost,
                           ['T1', 'T1-test', 'T1(local)', 'T1-test(local)'], f'Big-Data {reg_type}') # plotting local cost for bigdata T1
-            if True:
+            if False:
                 ap.plot_cost([local_cost_vector_bigdata_FLAIR, local_test_cost_vector_bigdata_FLAIR], cost,
                           ['FLAIR', 'FLAIR-test', 'FLAIR(local)', 'FLAIR-test(local)'], f'Big-Data {reg_type}') # plotting local cost for bigdata FLAIR
             if False and reg_type == 'align':
@@ -156,10 +157,10 @@ if __name__ == '__main__':
                           ['FLAIR-T1', 'FLAIR-T1-test'], f'Big-Data-Align') # plotting local cost for bigdata FLAIR
                 
             # Plottinf for HCP-YA 
-            if True:    
+            if False:    
                 ap.plot_cost([local_cost_vector_hcpya_T1, local_test_cost_vector_hcpya_T1], cost,
                           ['T1', 'T1-test', 'T1(local)', 'T1-test(local)'], f'HCP-YA {reg_type}') # plotting local cost for HCPYA T1
-            if True:
+            if False:
                 ap.plot_cost([local_cost_vector_hcpya_T2, local_test_cost_vector_hcpya_T2], cost,
                           ['T2', 'T2-test', 'T2(local)', 'T2-test(local)'], f'HCP-YA {reg_type}') # plotting local cost for HCPYA T2
             if False and reg_type == 'align':

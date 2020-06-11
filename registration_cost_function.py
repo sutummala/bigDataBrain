@@ -25,7 +25,7 @@ def compute_local_similarity(ref_image, moving_image, cost_func, voi_size):
                 elif cost_func == 'cc':
                     cost_vector.append(acf.cc(ref_voi, moving_voi))
                 elif cost_func == 'ncc':
-                    cost_vector.append(np.abs(acf.ncc(ref_voi, moving_voi)))
+                    cost_vector.append(np.abs(acf.ncc(ref_voi, moving_voi, 'spearman')))
                 elif cost_func == 'mi':
                     cost_vector.append(acf.mi(ref_voi, moving_voi)[0])
                 elif cost_func == 'nmi':
@@ -47,7 +47,7 @@ def compute_global_similarity(ref_image, moving_image, cost_func):
         similarity = acf.cc(ref_image, moving_image)
     elif cost_func == 'ncc':
         # 3. Normalited Cross Correlation
-        similarity = acf.ncc(ref_image, moving_image)
+        similarity = acf.ncc(ref_image, moving_image, 'spearman')
     elif cost_func == 'mi':
         # 4. Mutual Information
         similarity, _, _ = acf.mi(ref_image, moving_image)
@@ -83,7 +83,7 @@ def do_check_registration(refpath, movingfile, cost_func, masking, measure_globa
     global_cost = []
     if ref_image.shape == moving_image.shape:
         if measure_local:
-            local_similarity = compute_local_similarity(ref_image, moving_image, cost_func, voi_size = 5) # local similarity
+            local_similarity = compute_local_similarity(ref_image, moving_image, cost_func, voi_size = 3) # local similarity
             local_cost.append(local_similarity)
         else:
             print('local similarity measure is not requested\n')
@@ -114,7 +114,7 @@ def do_check_coregistration(ref, movingfile, cost_func, masking, measure_global,
     global_cost = []
     if ref_image.shape == moving_image.shape:
         if measure_local:
-            local_similarity = compute_local_similarity(ref_image, moving_image, cost_func, voi_size = 5) # local similarity
+            local_similarity = compute_local_similarity(ref_image, moving_image, cost_func, voi_size = 3) # local similarity
             local_cost.append(local_similarity)
         else:
             print('local similarity measure is not requested\n')

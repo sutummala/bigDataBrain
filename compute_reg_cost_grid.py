@@ -1,3 +1,5 @@
+# code created by Sudhakar on May 2020
+# compute registration cost
 
 import sys
 import os
@@ -75,7 +77,7 @@ for image_type in image_types:
             for reg_type in reg_types:
             # dealing with hrT1, hrT2 and hrFLAIR for bigdata and HCPYA, rigid and affine registration
                 pass
-                #compute_cost_vectors(data_dir, subject, reg_type, cost, image_type)
+                compute_cost_vectors(data_dir, subject, reg_type, cost, image_type)
             
 print('done computation\n')
 
