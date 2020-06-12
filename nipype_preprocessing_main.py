@@ -125,6 +125,36 @@ def preprocessing_main(data_dir, subject):
                  imageFLAIR_Average = imageFLAIR_A.replace('.A.', '.M.')
                  nps.doAlignAverage(datapath, datapathMat, imageFLAIR_A, imageFLAIR_B, imageFLAIR_Average)
                  nps.preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, imageFLAIR_Average, 'FLAIR', 'hrFLAIR.M', nu_corr)
+                 
+            # Pre-Processing of PD (Proton-Density) Image(s)
+            onlyoneSeriesPD = False 
+            firstSeriesPD = False
+            secondSeriesPD = False
+            for image in strucImages:
+                if any([image.endswith('hrPD.nii.gz'), image.endswith('hrPD.nii'), image.endswith('hrPD.img')]):
+                    imagePD = image
+                    onlyoneSeriesPD = True
+                elif any([image.endswith('hrPD.A.nii.gz'), image.endswith('hrPD.A.nii'), image.endswith('hrPD.A.img')]):
+                    imagePD_A = image
+                    firstSeriesPD = True
+                elif any([image.endswith('hrPD.B.nii.gz'), image.endswith('hrPD.B.nii'), image.endswith('hrPD.B.img')]):
+                    imagePD_B = image
+                    secondSeriesPD = True
+                    
+            if onlyoneSeriesPD:
+                 print('found only one PD series', imagePD, '\n')
+                 nps.preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, imagePD, 'PD', 'hrPD', nu_corr)
+            elif useFirst and firstSeriesPD:
+                 print('found two PD series, using first one', imagePD_A, '\n')
+                 nps.preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, imageFLAIR_A, 'PD', 'hrPD.A', nu_corr)
+            elif useSecond and secondSeriesPD:
+                 print('found two PD series, using second one', imagePD_B, '\n')
+                 nps.preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, imageFLAIR_B, 'PD', 'hrPD.B', nu_corr)
+            elif (useAverage and firstSeriesPD and secondSeriesPD):
+                 print('found two PD series, doing alignment and average before processing\n')
+                 imagePD_Average = imagePD_A.replace('.A.', '.M.')
+                 nps.doAlignAverage(datapath, datapathMat, imagePD_A, imagePD_B, imagePD_Average)
+                 nps.preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, imagePD_Average, 'PD', 'hrPD.M', nu_corr)
     else:
         print('no anat folder exist for', subject, 'moving on to the next subject\n')
     

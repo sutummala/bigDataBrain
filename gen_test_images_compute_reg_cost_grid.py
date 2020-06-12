@@ -11,15 +11,8 @@ import registration_cost_function as rcf
 datapath = sys.argv[1] # Path to the subjects data directory
 subject = sys.argv[2] # Subject ID
 
-#datapath = '/usr/users/tummala/bigdata'
-
 refpath = "/usr/users/nmri/tools/fsl/6.0.3/data/standard" # FSL template
 ref = refpath+'/MNI152_T1_1mm.nii.gz' # Whole brain MNI 
-#subjects = os.listdir(datapath) # Test files 
-
-#subject = random.choice(subjects) # chooses a subject ramdonly
-#subject = subjects[1]
-#print(subject)
 
 def generate_new_param(scales, trans, rots, t):
     ''' generate new scales, trans, rots'''
@@ -221,12 +214,12 @@ for image_type in image_types:
             # computing cost for test images (T1, T2 and FLAIR)
             compute_test_cost_vectors(reg_type, cost, image_type)
             
-for image_type in image_types[1:]:
-    # genrating test images for co-reg of T2/FLAIR brain to T1 brain
-    generate_coreg_test_images(image_type, no_of_test_images = 10) # generate 10 test images for each subject
-    for cost in costs:
-        # computing cost for test images of T2/FLAIR brain aligned to T1 brain
-        compute_coreg_test_cost_vectors(cost, image_type)
+# for image_type in image_types[1:]:
+#     # genrating test images for co-reg of T2/FLAIR brain to T1 brain
+#     generate_coreg_test_images(image_type, no_of_test_images = 10) # generate 10 test images for each subject
+#     for cost in costs:
+#         # computing cost for test images of T2/FLAIR brain aligned to T1 brain
+#         compute_coreg_test_cost_vectors(cost, image_type)
     
 print('done computation\n')
        
