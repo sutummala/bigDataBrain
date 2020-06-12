@@ -146,10 +146,10 @@ def preprocessing_main(data_dir, subject):
                  nps.preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, imagePD, 'PD', 'hrPD', nu_corr)
             elif useFirst and firstSeriesPD:
                  print('found two PD series, using first one', imagePD_A, '\n')
-                 nps.preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, imageFLAIR_A, 'PD', 'hrPD.A', nu_corr)
+                 nps.preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, imagePD_A, 'PD', 'hrPD.A', nu_corr)
             elif useSecond and secondSeriesPD:
                  print('found two PD series, using second one', imagePD_B, '\n')
-                 nps.preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, imageFLAIR_B, 'PD', 'hrPD.B', nu_corr)
+                 nps.preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, imagePD_B, 'PD', 'hrPD.B', nu_corr)
             elif (useAverage and firstSeriesPD and secondSeriesPD):
                  print('found two PD series, doing alignment and average before processing\n')
                  imagePD_Average = imagePD_A.replace('.A.', '.M.')
