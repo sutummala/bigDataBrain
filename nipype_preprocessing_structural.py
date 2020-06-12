@@ -482,7 +482,7 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
             do_registration_quality(reference, filePDtoT1, 'nmi') # checking quality of registration
 
         if os.path.exists(matPDcroppedtoT1):
-            print('PD cropped to T1 matrix already computed', matFlaircroppedtoT1, '\n')
+            print('PD cropped to T1 matrix already computed', matPDcroppedtoT1, '\n')
         else:
             naf.doConcatXFM(matPDcroppedtoT1cropped, matCroT1, matPDcroppedtoT1) # PD cropped to T1
             
