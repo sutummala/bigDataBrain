@@ -9,7 +9,19 @@ import registration_cost_function as rcf
 def do_registration_quality(*args):
     print(f'checking registration quality b/w {args[0], args[1]}\n')
     _, local_cost = rcf.do_check_coregistration(args[0], args[1], args[2], True, True, True)
-
+    
+    if args[2] == 'ncc':
+        thr = 0.4
+        thr_critical = 0.2
+    elif args[2] == 'nmi':
+        thr = 0.5
+        thr_critical = 0.25
+        
+    if local_cost < thr:
+        print(f'registration needs manual checking for {args[1]}')
+    elif local_cost < thr_critical:
+        print(f'registration is bad for {args[1]}, ignoring the subject')
+                
 # realignning and averaging if two series are found
 def doAlignAverage(datapath, datapathMat, infile1, infile2, outfile):
     
