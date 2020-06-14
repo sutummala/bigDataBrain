@@ -3,24 +3,39 @@
 # pre-processing structural data, alignment of T1, T2/FLAIR to MNI
 
 import os
+import numpy as np
 import nipype_all_functions as naf
 import registration_cost_function as rcf
 
+# checking registration
 def do_registration_quality(*args):
     print(f'checking registration quality b/w {args[0], args[1]}\n')
     _, local_cost = rcf.do_check_coregistration(args[0], args[1], args[2], True, True, True)
     
     if args[2] == 'ncc':
-        thr = 0.4
+        thr = 0.40
         thr_critical = 0.2
     elif args[2] == 'nmi':
-        thr = 0.5
-        thr_critical = 0.25
+        thr = 0.30
+        thr_critical = 0.15
         
-    if local_cost < thr:
-        print(f'registration needs manual checking for {args[1]}')
+    split_path = args[1].split('/')
+    
+    saving_folder = os.path.join('/', split_path[1], split_path[2], split_path[3], split_path[4], split_path[5], 'reg_check')
+    if not os.path.exists(saving_folder):
+        os.makedirs(saving_folder)
+        
+    save_file = split_path[7]+'.reg'
+    
+    if local_cost >= thr:
+        print(f'registration between {args[0]} and {args[1]} looks fine\n')
+        np.savetxt(saving_folder+'/'+save_file, [1], fmt = '%d')
+    if local_cost < thr and local_cost > thr_critical:
+        print(f'registration needs manual checking for {args[1]}\n')
+        np.savetxt(saving_folder+'/'+save_file, [0], fmt = '%d')
     elif local_cost < thr_critical:
-        print(f'registration is bad for {args[1]}, ignoring the subject')
+        print(f'registration is bad for {args[1]}, ignore the subject\n')
+        np.savetxt(saving_folder+'/'+save_file, [-1], fmt = '%d')
                 
 # realignning and averaging if two series are found
 def doAlignAverage(datapath, datapathMat, infile1, infile2, outfile):
