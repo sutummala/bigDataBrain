@@ -33,8 +33,8 @@ def compute_local_similarity(ref_image, moving_image, cost_func, voi_size):
                 else:
                     print('cost function is not defined\n')
     bar.finish()
-    print(f'local similarity ({cost_func}) between reference and moving computed is: {np.average(cost_vector[~np.isnan(cost_vector)])}\n')
     cost_vector = np.array(cost_vector)
+    print(f'local similarity ({cost_func}) between reference and moving computed is: {np.average(cost_vector[~np.isnan(cost_vector)])}\n')
     return np.average(cost_vector[~np.isnan(cost_vector)]) # removing nan values if any
  
 # Computing global similarity value                   
