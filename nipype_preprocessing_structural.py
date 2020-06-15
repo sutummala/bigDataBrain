@@ -9,8 +9,10 @@ import registration_cost_function as rcf
 
 # checking registration
 def do_registration_quality(*args):
-    print(f'checking registration quality b/w {args[0], args[1]}\n')
-    _, local_cost = rcf.do_check_coregistration(args[0], args[1], args[2], True, True, True)
+    print(f'checking registration quality b/w {args[0], args[1]} with cost {args[2]}\n')
+    global_cost, local_cost = rcf.do_check_coregistration(args[0], args[1], args[2], masking = True, measure_global = True, measure_local = True)
+    
+    print('doing quality check...\n')
     
     if args[2] == 'ncc':
         thr = 0.40
@@ -18,22 +20,27 @@ def do_registration_quality(*args):
     elif args[2] == 'nmi':
         thr = 0.30
         thr_critical = 0.15
+    
+    print(f'actual thr is {local_cost[0]} and cut-off thr is {thr}, critical thr is {thr_critical}\n')
         
     split_path = args[1].split('/')
     
     saving_folder = os.path.join('/', split_path[1], split_path[2], split_path[3], split_path[4], split_path[5], 'reg_check')
+    print(f'saving flags at {saving_folder}\n')
+    
     if not os.path.exists(saving_folder):
         os.makedirs(saving_folder)
         
-    save_file = split_path[7]+'.reg'
+    save_file = split_path[7][:-4]+'.reg'
+    print(f'reg flag file saved is {save_file}')
     
-    if local_cost >= thr:
+    if local_cost[0] >= thr:
         print(f'registration between {args[0]} and {args[1]} looks fine\n')
         np.savetxt(saving_folder+'/'+save_file, [1], fmt = '%d')
-    if local_cost < thr and local_cost > thr_critical:
+    elif local_cost[0] < thr and local_cost[0] >= thr_critical:
         print(f'registration needs manual checking for {args[1]}\n')
         np.savetxt(saving_folder+'/'+save_file, [0], fmt = '%d')
-    elif local_cost < thr_critical:
+    elif local_cost[0] < thr_critical:
         print(f'registration is bad for {args[1]}, ignore the subject\n')
         np.savetxt(saving_folder+'/'+save_file, [-1], fmt = '%d')
                 
@@ -262,7 +269,7 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
             print('cropped and bias-corrected in mni is already generated', fileRenucorrMNI, '\n')
         else:
             naf.doApplyXFM(filenucorr, matCroppedtoMNI, ref, fileRenucorrMNI, 'spline', tag) # doing bias-corrected mni transformation from cropped.nu_corr
-            do_registration_quality(ref, fileRenucorrMNI, 'nmi') # checking quality of registration
+        do_registration_quality(ref, fileRenucorrMNI, 'nmi') # checking quality of registration
         
         if os.path.exists(filenucorrmnibrain):
             print('cropped and bias-corrected brain extraction already finished', filenucorrmnibrain, '\n')
@@ -274,7 +281,7 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
             print('transformation to MNI space already finished', fileRawMNI, '\n')
         else:
             naf.doApplyXFM(fileReo, matT1toMNI, ref, fileRawMNI, 'spline', tag) # transforming raw image to mni
-            do_registration_quality(ref, fileRawMNI, 'nmi') # checking quality of registration
+        do_registration_quality(ref, fileRawMNI, 'nmi') # checking quality of registration
         
         if os.path.exists(fileRawmnibrain):
             print('masking in mni space for raw image already finished', fileRawmnibrain, '\n')
@@ -297,13 +304,13 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
             print('trasformation of bias-corrected T1 to align already done', fileRenucorrAlign, '\n')
         else:
             naf.doApplyXFM(fileRenucorr, matT1toAlign, ref, fileRenucorrAlign, 'spline', tag) # Nucorr to Align
-            do_registration_quality(ref, fileRenucorrAlign, 'nmi') # checking quality of registration
+        do_registration_quality(ref, fileRenucorrAlign, 'nmi') # checking quality of registration
 
         if os.path.exists(fileRawAlign):
             print('trasformation of raw T1 to align already done', fileRawAlign, '\n')
         else:
              naf.doApplyXFM(fileRaw, matT1toAlign, ref, fileRawAlign, 'spline', tag) # Original to Align
-             do_registration_quality(ref, fileRawAlign, 'nmi') # checking quality of registration
+        do_registration_quality(ref, fileRawAlign, 'nmi') # checking quality of registration
 
         if os.path.exists(filealignbrain):
             print('brain extraction in align space is already done', filealignbrain, '\n')

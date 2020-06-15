@@ -33,7 +33,7 @@ def compute_local_similarity(ref_image, moving_image, cost_func, voi_size):
                 else:
                     print('cost function is not defined\n')
     bar.finish()
-    print(f'local similarity ({cost_func}) between reference and moving computed is: {np.average(cost_vector)}\n')
+    print(f'local similarity ({cost_func}) between reference and moving computed is: {np.average(cost_vector[~np.isnan(cost_vector)])}\n')
     cost_vector = np.array(cost_vector)
     return np.average(cost_vector[~np.isnan(cost_vector)]) # removing nan values if any
  
@@ -83,7 +83,7 @@ def do_check_registration(refpath, movingfile, cost_func, masking, measure_globa
     global_cost = []
     if ref_image.shape == moving_image.shape:
         if measure_local:
-            local_similarity = compute_local_similarity(ref_image, moving_image, cost_func, voi_size = 3) # local similarity
+            local_similarity = compute_local_similarity(ref_image, moving_image, cost_func, voi_size = 5) # local similarity
             local_cost.append(local_similarity)
         else:
             print('local similarity measure is not requested\n')
@@ -96,7 +96,7 @@ def do_check_registration(refpath, movingfile, cost_func, masking, measure_globa
         print('image shape mismatch!\n')
     return global_cost, local_cost
         
-# Checking co-registration of T2/FLAIR to T1 brain
+# Checking co-registration of T2/FLAIR to T1 brain or T1/T2/FLAIR to MNI if full path is given in ref
 def do_check_coregistration(ref, movingfile, cost_func, masking, measure_global, measure_local):
        
     reference = nib.load(ref)
@@ -114,7 +114,7 @@ def do_check_coregistration(ref, movingfile, cost_func, masking, measure_global,
     global_cost = []
     if ref_image.shape == moving_image.shape:
         if measure_local:
-            local_similarity = compute_local_similarity(ref_image, moving_image, cost_func, voi_size = 3) # local similarity
+            local_similarity = compute_local_similarity(ref_image, moving_image, cost_func, voi_size = 5) # local similarity
             local_cost.append(local_similarity)
         else:
             print('local similarity measure is not requested\n')
