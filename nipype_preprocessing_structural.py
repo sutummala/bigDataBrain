@@ -35,7 +35,7 @@ def do_registration_quality(*args):
     print(f'reg flag file saved is {save_file}')
     
     if local_cost[0] >= thr:
-        print(f'registration between {args[0]} and {args[1]} looks fine\n')
+        print(f'registration between {args[0]} and {args[1]} is fine\n')
         np.savetxt(saving_folder+'/'+save_file, [1], fmt = '%d')
     elif local_cost[0] < thr and local_cost[0] >= thr_critical:
         print(f'registration needs manual checking for {args[1]}\n')
@@ -258,12 +258,12 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
         if os.path.exists(maskfileRaw):
             print('brain mask in native space already finished', maskfileRaw, '\n')
         else:
-            naf.doApplyXFM(maskfilemni, matMNItoT1, fileRaw, maskfileRaw, 'nearestneighbour', tag) # creating brain mask in native space
+            naf.doApplyXFM(maskfilemni, matMNItoT1, fileReo, maskfileRaw, 'nearestneighbour', tag) # creating brain mask in native space
             
         if os.path.exists(filebrainRaw):
             print('masking in native space already finished', filebrainRaw, '\n')
         else:
-            naf.doApplyMasking(fileRaw, maskfileRaw, filebrainRaw) # doing masking in native space
+            naf.doApplyMasking(fileReo, maskfileRaw, filebrainRaw) # doing masking in native space
         
         if os.path.exists(fileRenucorrMNI):
             print('cropped and bias-corrected in mni is already generated', fileRenucorrMNI, '\n')
@@ -298,7 +298,7 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
         if os.path.exists(matT1toAlign):
             print('concat already', matT1toAlign, '\n')
         else:
-            naf.doConcatXFM(matT1Cro, matCroppedtoAlign, matT1toAlign) # Cropped T1 to Align
+            naf.doConcatXFM(matT1Cro, matCroppedtoAlign, matT1toAlign) # T1 to Align
              
         if os.path.exists(fileRenucorrAlign):
             print('trasformation of bias-corrected T1 to align already done', fileRenucorrAlign, '\n')
@@ -309,7 +309,7 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
         if os.path.exists(fileRawAlign):
             print('trasformation of raw T1 to align already done', fileRawAlign, '\n')
         else:
-             naf.doApplyXFM(fileRaw, matT1toAlign, ref, fileRawAlign, 'spline', tag) # Original to Align
+             naf.doApplyXFM(fileReo, matT1toAlign, ref, fileRawAlign, 'spline', tag) # Original to Align
         do_registration_quality(ref, fileRawAlign, 'nmi') # checking quality of registration
 
         if os.path.exists(filealignbrain):
