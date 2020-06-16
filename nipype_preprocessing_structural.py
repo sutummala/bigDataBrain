@@ -234,6 +234,7 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
             print('affine registration of T1 already done', filemni, '\n')
         else:
             naf.doFLIRT(filenucorr, ref, filemni, matCroppedtoMNI, 12, 'corratio', 'spline', tag) # Cropped T1 to MNI
+            do_registration_quality(refpath, filemni, 'nmi') # checking quality of registration
             
         if os.path.exists(matT1toMNI):
             print('transformation matrix from T1 to MNI already computed', matT1toMNI, '\n')
