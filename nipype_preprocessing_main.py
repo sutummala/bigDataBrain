@@ -1,3 +1,5 @@
+# Code created by Sudhakar on March, updated on June 2020
+# main script for structural mri data processing pipeline 
 
 import os
 import numpy as np
@@ -14,7 +16,7 @@ def preprocessing_main(data_dir, subject):
         strucImages = os.listdir(datapath)
         nFiles = np.size(strucImages)
         if nFiles == 0:
-            print('no files in the ant folder for', subject, 'moving on to the next subject\n')
+            print('no files in the anat folder for', subject, 'moving on to the next subject\n')
         else:
             useFirst = False # First Series
             useSecond = False # Second Series
@@ -156,6 +158,6 @@ def preprocessing_main(data_dir, subject):
                  nps.doAlignAverage(datapath, datapathMat, imagePD_A, imagePD_B, imagePD_Average)
                  nps.preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, imagePD_Average, 'PD', 'hrPD.M', nu_corr)
     else:
-        print('no anat folder exist for', subject, 'moving on to the next subject\n')
+        print('no anat folder exists for', subject, 'moving on to the next subject\n')
     
     

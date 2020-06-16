@@ -1,5 +1,5 @@
 
-# Code created by Sudhakar on March 2020
+# Code created by Sudhakar on March, updated on June 2020
 # pre-processing structural data, alignment of T1, T2/FLAIR to MNI
 
 import os
@@ -9,17 +9,26 @@ import registration_cost_function as rcf
 
 # checking registration
 def do_registration_quality(*args):
-    print(f'checking registration quality b/w {args[0], args[1]} with cost {args[2]}\n')
-    global_cost, local_cost = rcf.do_check_coregistration(args[0], args[1], args[2], masking = True, measure_global = True, measure_local = True)
+    '''computing the cost for various registrations'''
     
-    print('doing quality check...\n')
-    
-    if args[2] == 'ncc':
-        thr = 0.40
-        thr_critical = 0.2
-    elif args[2] == 'nmi':
-        thr = 0.30
-        thr_critical = 0.15
+    if args[1].find('hrT1') != -1:
+        print(f'checking registration quality b/w MNI T1_1mm template and {args[1]} with cost {args[2]}\n')
+        global_cost, local_cost = rcf.do_check_registration(args[0], args[1], args[2], masking = True, measure_global = True, measure_local = True)
+        if args[2] == 'ncc':
+            thr = 0.35
+            thr_critical = 0.17
+        elif args[2] == 'nmi':
+            thr = 0.30
+            thr_critical = 0.15
+    else:
+        print(f'checking registration quality b/w T1 brain and {args[1]} with cost {args[2]}\n')
+        global_cost, local_cost = rcf.do_check_coregistration(args[0], args[1], args[2], masking = True, measure_global = True, measure_local = True)
+        if args[2] == 'ncc':
+            thr = 0.30
+            thr_critical = 0.15
+        elif args[2] == 'nmi':
+            thr = 0.22
+            thr_critical = 0.11
     
     print(f'actual thr is {local_cost[0]} and cut-off thr is {thr}, critical thr is {thr_critical}\n')
         
@@ -71,6 +80,7 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
     refmask = refpath+'/'+'MNI152_T1_1mm_brain_mask.nii.gz' # MNI brain mask
     
     alltags = {'hrT1', 'hrT1.A', 'hrT1.B','hrT1.M','hrT2', 'hrT2.A', 'hrT2.B', 'hrT2.M', 'hrFLAIR', 'hrFLAIR.A', 'hrFLAIR.B', 'hrFLAIR.M', 'hrPD', 'hrPD.A', 'hrPD.B', 'hrPD.M'}
+    check_reg = 1
     
     if image.endswith('nii.gz'):
         if maintag in alltags: # It is used to properly assign extensions (by getting rid of nii.gz) for files generated during processing
@@ -269,7 +279,7 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
             print('cropped and bias-corrected in mni is already generated', fileRenucorrMNI, '\n')
         else:
             naf.doApplyXFM(filenucorr, matCroppedtoMNI, ref, fileRenucorrMNI, 'spline', tag) # doing bias-corrected mni transformation from cropped.nu_corr
-        do_registration_quality(ref, fileRenucorrMNI, 'nmi') # checking quality of registration
+            do_registration_quality(refpath, fileRenucorrMNI, 'nmi') # checking quality of registration
         
         if os.path.exists(filenucorrmnibrain):
             print('cropped and bias-corrected brain extraction already finished', filenucorrmnibrain, '\n')
@@ -281,7 +291,7 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
             print('transformation to MNI space already finished', fileRawMNI, '\n')
         else:
             naf.doApplyXFM(fileReo, matT1toMNI, ref, fileRawMNI, 'spline', tag) # transforming raw image to mni
-        do_registration_quality(ref, fileRawMNI, 'nmi') # checking quality of registration
+            do_registration_quality(refpath, fileRawMNI, 'nmi') # checking quality of registration
         
         if os.path.exists(fileRawmnibrain):
             print('masking in mni space for raw image already finished', fileRawmnibrain, '\n')
@@ -304,13 +314,13 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
             print('trasformation of bias-corrected T1 to align already done', fileRenucorrAlign, '\n')
         else:
             naf.doApplyXFM(fileRenucorr, matT1toAlign, ref, fileRenucorrAlign, 'spline', tag) # Nucorr to Align
-        do_registration_quality(ref, fileRenucorrAlign, 'nmi') # checking quality of registration
+            do_registration_quality(refpath, fileRenucorrAlign, 'nmi') # checking quality of registration
 
         if os.path.exists(fileRawAlign):
             print('trasformation of raw T1 to align already done', fileRawAlign, '\n')
         else:
              naf.doApplyXFM(fileReo, matT1toAlign, ref, fileRawAlign, 'spline', tag) # Original to Align
-        do_registration_quality(ref, fileRawAlign, 'nmi') # checking quality of registration
+             do_registration_quality(refpath, fileRawAlign, 'nmi') # checking quality of registration
 
         if os.path.exists(filealignbrain):
             print('brain extraction in align space is already done', filealignbrain, '\n')
@@ -322,6 +332,7 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
             print('brain extraction of raw brain in align already done', fileRawAlignbrain, '\n')
         else:
             naf.doApplyMasking(fileRawAlign, maskfileRawalign, fileRawAlignbrain) # masking in Raw align space
+            
     elif tag in {"T2"}:
         tag1 = tag.lower()
         fileT2toT1 = datapath+'/'+image[0:idx]+'.reoriented.cropped.nu_corr.brain.alignedToT1.nii'
@@ -385,25 +396,25 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
             print('bias-corrected T2 image transformed to align', fileRenucorrAlign, '\n')
         else:
             naf.doApplyXFM(fileRenucorr, matT2toAlign, ref, fileRenucorrAlign, 'spline', tag) # bias-corrected T2 to Align
-            do_registration_quality(ref, fileRenucorrAlign, 'nmi') # checking quality of registration
+            do_registration_quality(refpath, fileRenucorrAlign, 'nmi') # checking quality of registration
 
         if os.path.exists(fileRawAlign):
             print('Raw T2 image transformed to align', fileRawAlign, '\n')
         else:
             naf.doApplyXFM(fileReo, matT2toAlign, ref, fileRawAlign, 'spline', tag) # raw T2 to Align
-            do_registration_quality(ref, fileRawAlign, 'nmi') # checking quality of registration
+            do_registration_quality(refpath, fileRawAlign, 'nmi') # checking quality of registration
 
         if os.path.exists(fileRenucorrMNI):
             print('bias-corrected T2 image transformed to mni', fileRenucorrMNI, '\n')
         else:
             naf.doApplyXFM(fileRenucorr, matT2toMNI, ref, fileRenucorrMNI, 'spline', tag) # bias-corrected T2 to MNI
-            do_registration_quality(ref, fileRenucorrMNI, 'nmi') # checking quality of registration
+            do_registration_quality(refpath, fileRenucorrMNI, 'nmi') # checking quality of registration
 
         if os.path.exists(fileRawMNI):
             print('Raw T2 image transformed to align', fileRawMNI, '\n')
         else:
             naf.doApplyXFM(fileReo, matT2toMNI, ref, fileRawMNI, 'spline', tag) # raw T2 to MNI
-            do_registration_quality(ref, fileRawMNI, 'nmi') # checking quality of registration
+            do_registration_quality(refpath, fileRawMNI, 'nmi') # checking quality of registration
 
     elif tag == "FLAIR":
         fileFlairtoT1 = datapath+'/'+image[0:idx]+'.reoriented.cropped.nu_corr.brain.alignedToT1.nii'
@@ -467,25 +478,25 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
             print('bias-corrected FLAIR image transformed to align', fileRenucorrAlign, '\n')
         else:
             naf.doApplyXFM(fileRenucorr, matFlairtoAlign, ref, fileRenucorrAlign, 'spline', tag) # bias-corrected FLAIR to Align
-            do_registration_quality(ref, fileRenucorrAlign, 'nmi') # checking quality of registration
+            do_registration_quality(refpath, fileRenucorrAlign, 'nmi') # checking quality of registration
 
         if os.path.exists(fileRawAlign):
             print('Raw FLAIR image transformed to align', fileRawAlign, '\n')
         else:
             naf.doApplyXFM(fileReo, matFlairtoAlign, ref, fileRawAlign, 'spline', tag) # raw FLAIR to Align
-            do_registration_quality(ref, fileRawAlign, 'nmi') # checking quality of registration
+            do_registration_quality(refpath, fileRawAlign, 'nmi') # checking quality of registration
 
         if os.path.exists(fileRenucorrMNI):
             print('bias-corrected FLAIR image transformed to mni', fileRenucorrMNI, '\n')
         else:
             naf.doApplyXFM(fileRenucorr, matFlairtoMNI, ref, fileRenucorrMNI, 'spline', tag) # bias-corrected FLAIR to MNI
-            do_registration_quality(ref, fileRenucorrMNI, 'nmi') # checking quality of registration
+            do_registration_quality(refpath, fileRenucorrMNI, 'nmi') # checking quality of registration
 
         if os.path.exists(fileRawMNI):
             print('Raw FLAIR image transformed to align', fileRawMNI, '\n')
         else:
             naf.doApplyXFM(fileReo, matFlairtoMNI, ref, fileRawMNI, 'spline', tag) # raw FLAIR to MNI
-            do_registration_quality(ref, fileRawMNI, 'nmi') # checking quality of registration
+            do_registration_quality(refpath, fileRawMNI, 'nmi') # checking quality of registration
             
     elif tag == "PD":
         filePDtoT1 = datapath+'/'+image[0:idx]+'.reoriented.cropped.nu_corr.brain.alignedToT1.nii'
@@ -549,25 +560,25 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
             print('bias-corrected PD image transformed to align', fileRenucorrAlign, '\n')
         else:
             naf.doApplyXFM(fileRenucorr, matPDtoAlign, ref, fileRenucorrAlign, 'spline', tag) # bias-corrected PD to Align
-            do_registration_quality(ref, fileRenucorrAlign, 'nmi') # checking quality of registration
+            do_registration_quality(refpath, fileRenucorrAlign, 'nmi') # checking quality of registration
 
         if os.path.exists(fileRawAlign):
             print('Raw PD image transformed to align', fileRawAlign, '\n')
         else:
             naf.doApplyXFM(fileReo, matPDtoAlign, ref, fileRawAlign, 'spline', tag) # raw PD to Align
-            do_registration_quality(ref, fileRawAlign, 'nmi') # checking quality of registration
+            do_registration_quality(refpath, fileRawAlign, 'nmi') # checking quality of registration
 
         if os.path.exists(fileRenucorrMNI):
             print('bias-corrected PD image transformed to mni', fileRenucorrMNI, '\n')
         else:
             naf.doApplyXFM(fileRenucorr, matPDtoMNI, ref, fileRenucorrMNI, 'spline', tag) # bias-corrected PD to MNI
-            do_registration_quality(ref, fileRenucorrMNI, 'nmi') # checking quality of registration
+            do_registration_quality(refpath, fileRenucorrMNI, 'nmi') # checking quality of registration
 
         if os.path.exists(fileRawMNI):
             print('Raw PD image transformed to align', fileRawMNI, '\n')
         else:
             naf.doApplyXFM(fileReo, matPDtoMNI, ref, fileRawMNI, 'spline', tag) # raw PD to MNI
-            do_registration_quality(ref, fileRawMNI, 'nmi') # checking quality of registration
+            do_registration_quality(refpath, fileRawMNI, 'nmi') # checking quality of registration
 
     else: 
         print('Incorrect tag is chosen for FLIRT\n')

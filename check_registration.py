@@ -105,15 +105,13 @@ def compute_cutoff_auc(data1, data2, *tags):
     labels = np.concatenate([np.ones(len(data1)), np.zeros(len(data2))])
     print(f'{len(data1)}, {len(data2)}')
     fpr, tpr, thresholds = metrics.roc_curve(labels, np.concatenate([data1, data2]), pos_label = 1)
-    for fp, tp, th in zip(fpr, tpr, thresholds):
-        print(fp,tp,th)
     
     print(f'Threshold for {tags[2]}-{tags[1]}-{tags[3]}-{tags[0]} is: {thresholds[np.argmax(tpr-fpr)]}, AUC is: {metrics.auc(fpr, tpr)}\n')
     
 
 if __name__ == '__main__':
     
-    costs = ['nmi']
+    costs = ['ncc', 'nmi']
     reg_types = ['align', 'mni']
 
     for reg_type in reg_types:
