@@ -73,7 +73,7 @@ def generate_coreg_test_images(img_type, no_of_test_images):
             scales, trans, rots = dctm.decompose(mat_orig, angles = True) # decomposing the transformation matrix into scales, translations and rotations
             for t in range(no_of_test_images):
                 testfile = f'{test_matfile[0:-4]}.test{t+1}.mat'
-                outfile = f'{moving_file[0:-4]}.test{t+1}.nii' # ref_file should be changed to moving_file (in co-ordination with line 64 of check_registration.py)
+                outfile = f'{moving_file[0:-4]}.test{t+1}.nii' 
                 
                 scales_new, trans_new, rots_new = generate_new_param(scales, trans, rots, t)
                                 
@@ -105,7 +105,7 @@ def compute_coreg_test_cost_vectors(cost_func, image_type):
         movingfiles = os.listdir(required_folder)
         for movingfile in movingfiles:
             print(f'{subject}, checking file: {movingfile}')
-            global_cost, local_cost = rcf.do_check_coregistration(raw_path+'/'+ref_file, required_folder+'/'+movingfile, cost_func, True, True, True)
+            global_cost, local_cost = rcf.do_check_coregistration(raw_path+'/'+ref_file, required_folder+'/'+movingfile, cost_func, 3, True, True, True)
             cost_file = movingfile[0:-4]+f'.{cost_func}.data'       
             np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.3f')
 
@@ -198,7 +198,7 @@ def compute_test_cost_vectors(reg_type, cost_func, image_type):
         movingfiles = os.listdir(required_folder)
         for movingfile in movingfiles:
             print(f'{subject}, checking file: {movingfile}')
-            global_cost, local_cost = rcf.do_check_registration(refpath, required_folder+'/'+movingfile, cost_func, True, True, True)
+            global_cost, local_cost = rcf.do_check_registration(refpath, required_folder+'/'+movingfile, cost_func, 3, True, True, True)
             cost_file = movingfile[0:-4]+f'.{cost_func}.data'       
             np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.3f')
 
@@ -206,20 +206,20 @@ image_types = ['hrT1', 'hrT2', 'hrFLAIR']
 costs = ['ncc', 'nmi']
 reg_types = ['align', 'mni']
 
-for image_type in image_types:
-    for reg_type in reg_types:
-        # generating test images for each img_type
-        generate_test_images(image_type, reg_type, no_of_test_images = 10) # generate 10 test images for each subject
-        for cost in costs:
-            # computing cost for test images (T1, T2 and FLAIR)
-            compute_test_cost_vectors(reg_type, cost, image_type)
+# for image_type in image_types:
+#     for reg_type in reg_types:
+#         # generating test images for each img_type
+#         generate_test_images(image_type, reg_type, no_of_test_images = 10) # generate 10 test images for each subject
+#         for cost in costs:
+#             # computing cost for test images (T1, T2 and FLAIR)
+#             compute_test_cost_vectors(reg_type, cost, image_type)
             
-# for image_type in image_types[1:]:
-#     # genrating test images for co-reg of T2/FLAIR brain to T1 brain
-#     generate_coreg_test_images(image_type, no_of_test_images = 10) # generate 10 test images for each subject
-#     for cost in costs:
-#         # computing cost for test images of T2/FLAIR brain aligned to T1 brain
-#         compute_coreg_test_cost_vectors(cost, image_type)
+for image_type in image_types[1:]:
+    # genrating test images for co-reg of T2/FLAIR brain to T1 brain
+    generate_coreg_test_images(image_type, no_of_test_images = 10) # generate 10 test images for each subject
+    for cost in costs:
+        # computing cost for test images of T2/FLAIR brain aligned to T1 brain
+        compute_coreg_test_cost_vectors(cost, image_type)
     
 print('done computation\n')
        

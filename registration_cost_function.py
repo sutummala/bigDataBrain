@@ -8,6 +8,23 @@ import all_cost_functions as acf
 
 # Computing local similarity values
 def compute_local_similarity(ref_image, moving_image, cost_func, voi_size):
+    '''
+    Parameters
+    ----------
+    ref_image : str
+        path to the reference image.
+    moving_image : str
+        path to the moving image.
+    cost_func : str
+        cost function.
+    voi_size : int
+        size of the volume of interest, e.g. 3 or 5 or 7 etc.
+
+    Returns
+    -------
+    float
+        returns local cost value.
+    '''
     x,y,z = np.shape(ref_image)
     cost_vector = []
     bar = progressbar.ProgressBar(maxval= x, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
@@ -39,7 +56,23 @@ def compute_local_similarity(ref_image, moving_image, cost_func, voi_size):
     return np.average(cost_vector[~np.isnan(cost_vector)]) # removing nan values if any
  
 # Computing global similarity value                   
-def compute_global_similarity(ref_image, moving_image, cost_func):                           
+def compute_global_similarity(ref_image, moving_image, cost_func):
+    '''
+    Parameters
+    ----------
+    ref_image : str
+        path to the reference image.
+    moving_image : str
+        path to the moving image.
+    cost_func : str
+        cost function.
+
+    Returns
+    -------
+    similarity : float
+        return global cost value.
+
+    '''                           
     if cost_func == 'ssd':
         # 1. Sum of squared differences(SSD)
         similarity = acf.ssd(ref_image, moving_image)
@@ -60,7 +93,32 @@ def compute_global_similarity(ref_image, moving_image, cost_func):
     return similarity
     
 # Checking registration to MNI template 
-def do_check_registration(refpath, movingfile, cost_func, masking, measure_global, measure_local):
+def do_check_registration(refpath, movingfile, cost_func, voi_size, masking, measure_global, measure_local):
+    '''
+    Parameters
+    ----------
+    refpath : str
+        path to the MNI standard template
+    movingfile : str
+        path to the moving file
+    cost_func : str
+        string describing the cost function.
+    voi_size : int
+        size of volume of interest, e.g. 3, 5 etc.
+    masking : boolean
+        if true, brain masking will be performed i.e computation will be performed with in the actual brain region.
+    measure_global : boolean
+        if true global cost value will be computed.
+    measure_local : boolean
+        if true local cost value will be computed.
+
+    Returns
+    -------
+    global_cost : float
+        value of the global cost.
+    local_cost : float
+        value of the local cost.
+    '''
     
     ref = refpath+'/'+'MNI152_T1_1mm.nii.gz' # Whole brain MN
     refmask = refpath+'/'+'MNI152_T1_1mm_brain_mask.nii.gz' # MNI brain mask
@@ -84,7 +142,7 @@ def do_check_registration(refpath, movingfile, cost_func, masking, measure_globa
     global_cost = []
     if ref_image.shape == moving_image.shape:
         if measure_local:
-            local_similarity = compute_local_similarity(ref_image, moving_image, cost_func, voi_size = 5) # local similarity
+            local_similarity = compute_local_similarity(ref_image, moving_image, cost_func, voi_size) # local similarity
             local_cost.append(local_similarity)
         else:
             print('local similarity measure is not requested\n')
@@ -98,7 +156,32 @@ def do_check_registration(refpath, movingfile, cost_func, masking, measure_globa
     return global_cost, local_cost
         
 # Checking co-registration of T2/FLAIR to T1 brain or T1/T2/FLAIR to MNI if full path is given in ref
-def do_check_coregistration(ref, movingfile, cost_func, masking, measure_global, measure_local):
+def do_check_coregistration(ref, movingfile, cost_func, voi_size, masking, measure_global, measure_local):
+    '''
+    Parameters
+    ----------
+    ref : str
+        path to the corresponding T1-weighted image
+    movingfile : str
+        path to the moving file
+    cost_func : str
+        string describing the cost function.
+    voi_size : int
+        size of volume of interest, e.g. 3, 5 etc.
+    masking : boolean
+        if true, brain masking will be performed i.e computation will be performed with in the actual brain region.
+    measure_global : boolean
+        if true global cost value will be computed.
+    measure_local : boolean
+        if true local cost value will be computed.
+
+    Returns
+    -------
+    global_cost : float
+        value of the global cost.
+    local_cost : float
+        value of the local cost.
+    '''
        
     reference = nib.load(ref)
     ref_image = reference.get_fdata() # reference image
@@ -115,7 +198,7 @@ def do_check_coregistration(ref, movingfile, cost_func, masking, measure_global,
     global_cost = []
     if ref_image.shape == moving_image.shape:
         if measure_local:
-            local_similarity = compute_local_similarity(ref_image, moving_image, cost_func, voi_size = 5) # local similarity
+            local_similarity = compute_local_similarity(ref_image, moving_image, cost_func, voi_size) # local similarity
             local_cost.append(local_similarity)
         else:
             print('local similarity measure is not requested\n')

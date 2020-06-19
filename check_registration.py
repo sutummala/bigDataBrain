@@ -13,12 +13,37 @@ subpath2 = '/usr/users/tummala/HCP-YA'
 # subpath3 = '/usr/users/tummala/bigdata'
 # subpath4 = '/usr/users/tummala/HCP-YA-test'
 
-def remove_nan(data): 
-    # removes nan values if any
+def remove_nan(data):
+    '''
+    Parameters
+    ----------
+    data : list
+        input list, also could have nan values.
+
+    Returns
+    -------
+    type: list
+        list with all nan values from the input removed.
+    '''
     data = np.array(data)
     return data[~np.isnan(data)]
 
 def get_coreg_cost_vectors(cost_func, subpath, tag):
+    '''
+    Parameters
+    ----------
+    cost_func : str
+        cost name, ncc:normalized correlation coefficient, nmi: normalized mutual information.
+    subpath : str
+        path containing all subjects.
+    tag : str
+        returns a tag to identify the image type.
+
+    Returns
+    -------
+    type: str
+        returns global and local cost vectors for all subjects under study.
+    '''
     subjects = os.listdir(subpath)
     global_cost_vector = []
     local_cost_vector = []
@@ -33,6 +58,23 @@ def get_coreg_cost_vectors(cost_func, subpath, tag):
     return remove_nan(global_cost_vector), remove_nan(local_cost_vector)
 
 def get_cost_vectors(cost_func, reg_type, subpath, tag):
+    '''
+    Parameters
+    ----------
+    cost_func : str
+        cost name, ncc:normalized correlation coefficient, nmi: normalized mutual information.
+    reg_type: str
+        registration type, align for rigid and mni for affine
+    subpath : str
+        path containing all subjects.
+    tag : str
+        returns a tag to identify the image type.
+
+    Returns
+    -------
+    type: str
+        returns global and local cost vectors for all subjects under study.
+    '''
     subjects = os.listdir(subpath)
     global_cost_vector = []
     local_cost_vector = []
@@ -49,6 +91,21 @@ def get_cost_vectors(cost_func, reg_type, subpath, tag):
     return remove_nan(global_cost_vector), remove_nan(local_cost_vector)
 
 def get_coreg_test_cost_vectors(cost_func, subpath, tag):
+    '''
+    Parameters
+    ----------
+    cost_func : str
+        cost name, ncc:normalized correlation coefficient, nmi: normalized mutual information.
+    subpath : str
+        path containing all subjects.
+    tag : str
+        returns a tag to identify the image type.
+
+    Returns
+    -------
+    type: str
+        returns global and local test cost vectors for all subjects under study.
+    '''
     subjects = os.listdir(subpath)
     global_cost_vector = []
     local_cost_vector = []
@@ -61,7 +118,7 @@ def get_coreg_test_cost_vectors(cost_func, subpath, tag):
         if os.path.exists(cost_folder) and os.listdir(cost_folder):
             data_files = os.listdir(cost_folder)
             for data_file in data_files:
-                if (tag in data_file and cost_func in data_file): # tag can be 'hrT2' and 'hrFLAIR' (if outfile is changed in line 83 of gen_test_images....._grid.py)
+                if (tag in data_file and cost_func in data_file): 
                     #print(reg_type, tag, cost_func)
                     cost_data = np.loadtxt(cost_folder+'/'+data_file)
                     global_cost_vector.append(cost_data[0])
@@ -69,6 +126,23 @@ def get_coreg_test_cost_vectors(cost_func, subpath, tag):
     return remove_nan(global_cost_vector), remove_nan(local_cost_vector)
 
 def get_test_cost_vectors(cost_func, reg_type, subpath, tag):
+    '''
+    Parameters
+    ----------
+    cost_func : str
+        cost name, ncc:normalized correlation coefficient, nmi: normalized mutual information.
+    reg_type: str
+        registration type, align for rigid and mni for affine
+    subpath : str
+        path containing all subjects.
+    tag : str
+        returns a tag to identify the image type.
+
+    Returns
+    -------
+    type: str
+        returns global and local test cost vectors for all subjects under study.
+    '''
     subjects = os.listdir(subpath)
     global_cost_vector = []
     local_cost_vector = []

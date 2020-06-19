@@ -3,7 +3,7 @@
 import os
 import sys
 
-data_dir = '/usr/users/tummala/HCP-YA'
+data_dir = '/usr/users/tummala/bigdata1'
 
 for subject in os.listdir(data_dir):
     ''' submits jobs to the cluster, one for each subject'''
@@ -12,7 +12,7 @@ for subject in os.listdir(data_dir):
     cmd += " "+"/usr/users/tummala/python/gen_test_images_compute_reg_cost_grid.py"
     cmd += f' {data_dir} {subject}'
     
-    os.system(f'nmri_qsub -runtime 2880 -title {subject} {cmd}')
+    os.system(f'nmri_qsub -cpus 1 -runtime 1440 -title {subject} {cmd}')
         
 
       

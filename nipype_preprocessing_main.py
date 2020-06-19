@@ -7,6 +7,20 @@ import nipype_preprocessing_structural as nps
 refpath = "/usr/users/nmri/tools/fsl/6.0.3/data/standard" # FSL template for affine registration
 
 def preprocessing_main(data_dir, subject):
+    '''
+    
+    Parameters
+    ----------
+    data_dir : str
+        path to the data directory.
+    subject : str
+        subject ID.
+
+    Returns
+    -------
+    all processed files.
+
+    '''
     datapath = data_dir+'/'+subject+'/anat' # raw image
     datapathAlign = data_dir+'/'+subject+'/align'# rigid transformed
     datapathAlignBB = data_dir+'/'+subject+'/align_bb'# rigid transformed with big bounding box
@@ -63,7 +77,7 @@ def preprocessing_main(data_dir, subject):
             elif (useAverage and firstSeriesT1 and secondSeriesT1):
                  print('found two T1 series, doing alignment and average before processing\n')
                  imageT1_Average = imageT1_A.replace('.A.', '.M.')
-                 nps.doAlignAverage(datapath, datapathMat, imageT1_A, imageT1_B, imageT1_Average)
+                 nps.do_Align_Average(datapath, datapathMat, imageT1_A, imageT1_B, imageT1_Average)
                  nps.preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, imageT1_Average, 'T1', 'hrT1.M', nu_corr)
                 
             
@@ -94,7 +108,7 @@ def preprocessing_main(data_dir, subject):
             elif (useAverage and firstSeriesT2 and secondSeriesT2):
                  print('found two T2 series, doing alignment and average before processing\n')
                  imageT2_Average = imageT2_A.replace('.A.', '.M.')
-                 nps.doAlignAverage(datapath, datapathMat, imageT2_A, imageT2_B, imageT2_Average)
+                 nps.do_Align_Average(datapath, datapathMat, imageT2_A, imageT2_B, imageT2_Average)
                  nps.preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, imageT2_Average, 'T2', 'hrT2.M', nu_corr)
                    
             
@@ -125,7 +139,7 @@ def preprocessing_main(data_dir, subject):
             elif (useAverage and firstSeriesFLAIR and secondSeriesFLAIR):
                  print('found two FLAIR series, doing alignment and average before processing\n')
                  imageFLAIR_Average = imageFLAIR_A.replace('.A.', '.M.')
-                 nps.doAlignAverage(datapath, datapathMat, imageFLAIR_A, imageFLAIR_B, imageFLAIR_Average)
+                 nps.do_Align_Average(datapath, datapathMat, imageFLAIR_A, imageFLAIR_B, imageFLAIR_Average)
                  nps.preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, imageFLAIR_Average, 'FLAIR', 'hrFLAIR.M', nu_corr)
                  
             # Pre-Processing of PD (Proton-Density) Image(s)
@@ -155,7 +169,7 @@ def preprocessing_main(data_dir, subject):
             elif (useAverage and firstSeriesPD and secondSeriesPD):
                  print('found two PD series, doing alignment and average before processing\n')
                  imagePD_Average = imagePD_A.replace('.A.', '.M.')
-                 nps.doAlignAverage(datapath, datapathMat, imagePD_A, imagePD_B, imagePD_Average)
+                 nps.do_Align_Average(datapath, datapathMat, imagePD_A, imagePD_B, imagePD_Average)
                  nps.preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, imagePD_Average, 'PD', 'hrPD.M', nu_corr)
     else:
         print('no anat folder exists for', subject, 'moving on to the next subject\n')

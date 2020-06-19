@@ -19,7 +19,25 @@ else:
 refpath = "/usr/users/nmri/tools/fsl/6.0.3/data/standard" # FSL template
   
 def compute_cost_vectors(data_dir, subject, reg_type, cost_func, tag):
-    
+    '''
+    Parameters
+    ----------
+    data_dir : str
+        path to the data directory.
+    subject : str
+        subject id.
+    reg_type : str
+        registration type, align for rigid and mni for affine.
+    cost_func : str
+        cost function, ncc: normalized correlation coefficient, nmi: normalized mutual information.
+    tag : str
+        image tag.
+
+    Returns
+    -------
+    returns global and local cost vectors 
+    '''
+
     print(f'doing for {reg_type} for cost {cost_func}\n')
     if reg_type == 'align':
         required_folder = data_dir+'/'+subject+'/align'
@@ -35,12 +53,27 @@ def compute_cost_vectors(data_dir, subject, reg_type, cost_func, tag):
     for movingfile in movingfiles:
         if movingfile.endswith(checking_tag) and tag in movingfile:
             print(f'{subject}, checking file: {movingfile}')
-            global_cost, local_cost = rcf.do_check_registration(refpath, required_folder+'/'+movingfile, cost_func, True, True, True)
+            global_cost, local_cost = rcf.do_check_registration(refpath, required_folder+'/'+movingfile, cost_func, 5, True, True, True)
             cost_file = movingfile[0:-4]+f'.{cost_func}.data'       
             np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.3f')
             
 def compute_coreg_cost_vectors(data_dir, subject, cost_func, tag):
-    
+    '''
+    Parameters
+    ----------
+    data_dir : str
+        path to the data directory.
+    subject : str
+        subject id.
+    cost_func : str
+        cost function, ncc: normalized correlation coefficient, nmi: normalized mutual information.
+    tag : str
+        image tag.
+
+    Returns
+    -------
+    returns global and local cost vectors for coregistration of T2/FLAIR to corresponding T1
+    '''
     #print(f'doing cost estimation for registering {tag} brain to hrT1 brain\n')
     required_folder = data_dir+'/'+subject+'/anat'
     checking_tag_ref = 'nu_corr.brain.nii'
@@ -62,7 +95,7 @@ def compute_coreg_cost_vectors(data_dir, subject, cost_func, tag):
             moving_file = True
     if ref_file and moving_file:
         print(f'{subject}, checking files: {movingfile_ref, movingfile_moving}')
-        global_cost, local_cost = rcf.do_check_coregistration(required_folder+'/'+movingfile_ref, required_folder+'/'+movingfile_moving, cost_func, True, True, True)
+        global_cost, local_cost = rcf.do_check_coregistration(required_folder+'/'+movingfile_ref, required_folder+'/'+movingfile_moving, cost_func, 5, True, True, True)
         cost_file = movingfile_moving[0:-4]+f'.{cost_func}.data'       
         np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.3f')
 
@@ -76,7 +109,6 @@ for image_type in image_types:
             compute_coreg_cost_vectors(data_dir, subject, cost, image_type)
             for reg_type in reg_types:
             # dealing with hrT1, hrT2 and hrFLAIR for bigdata and HCPYA, rigid and affine registration
-                pass
                 compute_cost_vectors(data_dir, subject, reg_type, cost, image_type)
             
 print('done computation\n')

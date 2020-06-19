@@ -3,12 +3,27 @@
 # Nipype functions for processing for structural data (T1, T2 and FLAIR)
 
 import os
+import json
 import nibabel as nib
 
 from nipype.interfaces import spm, fsl, freesurfer, ants
 fsl.FSLCommand.set_default_output_type('NIFTI')
 
-def doAverage(infile1, infile2, outfile): # Doing average 
+def doAverage(infile1, infile2, outfile): # Doing average
+    '''
+    Parameters
+    ----------
+    infile1 : str
+        path containing the input image one.
+    infile2 : str
+        path containing the input image two.
+    outfile : str
+        path to save the average of two input images.
+    
+    Returns
+    -------
+    an image which is average of two input images
+    '''
     print('doing average of', infile1, infile2)
     avg = fsl.MultiImageMaths()
     avg.inputs.in_file = infile1
@@ -20,6 +35,18 @@ def doAverage(infile1, infile2, outfile): # Doing average
     print('averaging done', outfile, '\n')
     
 def reOrientation(infile, outfile): # Doing Re-orientation
+    '''
+    Parameters
+    ----------
+    infile : str
+        path containing the input image.
+    outfile : str
+        path to save the image after re-orientation.
+    
+    Returns
+    -------
+    an image which is the re-oriented version of input image
+    '''
     print('doing re-orientation', infile)
     reorient = fsl.utils.Reorient2Std()
     reorient.inputs.in_file = infile
@@ -29,6 +56,21 @@ def reOrientation(infile, outfile): # Doing Re-orientation
     print('re-orientation done', outfile, '\n')
     
 def doCropping(infile, outfile, outmat): # Doing Cropping
+    '''
+    Parameters
+    ----------
+    infile : str
+        path containing the input image.
+    outfile : str
+        path to save the output image.
+    outmat : str
+        path to save the cropping information as a matrix.
+    
+    Returns
+    -------
+    an image which is cropped version of input image (removing neck and lower head parts)
+    a text file containing the cropping information
+    '''
     print('doing cropping', infile)
     robustfov = fsl.utils.RobustFOV()
     robustfov.inputs.in_file = infile
@@ -40,6 +82,16 @@ def doCropping(infile, outfile, outmat): # Doing Cropping
     print('cropping done', outfile, '\n')
     
 def doRemoveNegativeValues(infile): # Removes negative values for N4 bias-correction (as the intensities are log transformed)
+    '''
+    Parameters
+    ----------
+    infile : str
+        path containing the input image.
+        
+    Returns
+    -------
+    an image in which all negative values are removed
+    '''
     print('removing negative values and values close to zero before N4 in', infile)
     tempImage = nib.load(infile)
     tempVol = tempImage.get_fdata()
@@ -58,6 +110,18 @@ def doRemoveNegativeValues(infile): # Removes negative values for N4 bias-correc
     print('negative values are removed for N4 in', infile, '\n')
     
 def doN4BiasFieldCorrection(infile, outfile): # Doing N4 Bias-Field Correction
+    '''
+    Parameters
+    ----------
+    infile : str
+        path containing the input image.
+    outfile : str
+        path to save the image after N4 bias-field correction (N4 is from ANTS).
+    
+    Returns
+    -------
+    an image which is the bias-field corrected version of input image
+    '''
     print('doing bias correction using N4 for', infile)
     n4 = ants.N4BiasFieldCorrection()
     n4.inputs.dimension = 3
@@ -74,6 +138,18 @@ def doN4BiasFieldCorrection(infile, outfile): # Doing N4 Bias-Field Correction
     print('bias-corection done', outfile, '\n')
     
 def doN3BiasFieldCorrection(infile, outfile): # Doing N3 Bias-Field Correction
+    '''
+    Parameters
+    ----------
+    infile : str
+        path containing the input image.
+    outfile : str
+        path to save the image after N3 bias-field correction (N3 is from Free Surfer).
+    
+    Returns
+    -------
+    an image which is the bias-field corrected version of input image
+    '''
     print('doing bias correction using N3 for', infile)
     n3 = freesurfer.MNIBiasCorrection()
     n3.inputs.in_file = infile
@@ -85,6 +161,23 @@ def doN3BiasFieldCorrection(infile, outfile): # Doing N3 Bias-Field Correction
     print('bias-corection done', outfile, '\n')
     
 def doBrainExtraction(infile, maskfile, outfile, fraction): # Doing Brain Extraction
+    '''
+    Parameters
+    ----------
+    infile : str
+        path containing the input image.
+    maskfile : str
+        path to save the mask after brain extraction.
+    outfile : str
+        path to save the image after brain extraction (BET tool from FSL is used).
+    fraction : float
+        fraction that controls extent of brain extraction (lower value removes more outer brain).
+    
+    Returns
+    -------
+    an image which is the brain extracted version of input image
+    a binary image which is the mask for extracted brain
+    '''
     print('doing brain extraction for', infile)
     btr = fsl.BET()
     btr.inputs.in_file = infile
@@ -97,7 +190,32 @@ def doBrainExtraction(infile, maskfile, outfile, fraction): # Doing Brain Extrac
     os.rename(maskfile[0:-9]+'_mask.nii', maskfile)
     print('brain extraction completed', outfile, '\n')
     
-def doFLIRT(infile, reference, outfile, outmat, dof, costfunc, interpfunc, tag): # Doing Affine and Rigid Transformation 
+def doFLIRT(infile, reference, outfile, outmat, dof, costfunc, interpfunc, tag): # Doing Affine and Rigid Transformation
+    '''
+    Parameters
+    ----------
+    infile : str
+        path containing the input image.
+    reference : str
+        path containing the reference to which the input image will be registered.
+    outfile : str
+        path to save the output image.
+    outmat : str
+        path to save the transformation matrix.
+    dof : int
+        degrees of freedom (6 for rigid and 12 for affine)
+    costfunc : str
+        string describes the cost function
+    interpfunc : str
+        str containing the interpolation type
+    tag : str
+        tag to identify the image type. e.g. T1, T2, FLAIR etc.
+    
+    Returns
+    -------
+    an image which is the transformed version of input image
+    the corresponding transformation matrix file
+    '''
     flt = fsl.FLIRT()
     flt.inputs.in_file = infile
     if tag == "T1":
@@ -107,6 +225,8 @@ def doFLIRT(infile, reference, outfile, outmat, dof, costfunc, interpfunc, tag):
             print('doing rigid transformation of T1 brain to MNI brain...')
     elif tag == "T2":
         print('aligning T2 brain to T1 brain using rigid transformation...')
+    elif tag == "PD":
+        print('aligning PD brain to T1 brain using rigid transformation...')
     elif tag == "FLAIR":
         print('aligning FLAIR brain to T1 brain using rigid transformation...')
     elif tag == "alignment":
@@ -126,6 +246,18 @@ def doFLIRT(infile, reference, outfile, outmat, dof, costfunc, interpfunc, tag):
     print('transformation done ', outfile, '\n')
     
 def doInverseXFM(inmat, outmat): # Doing Inverse of transformation matrix
+    '''
+    Parameters
+    ----------
+    inmat : str
+        path containing the input transformation matrix.
+    outmat : str
+        path to store output transformation matrix.
+    
+    Returns
+    -------
+    an inverse transformation matrix of the input matrix
+    '''
     print('doing inverse of', inmat)
     invt = fsl.ConvertXFM() 
     invt.inputs.in_file = inmat
@@ -135,6 +267,20 @@ def doInverseXFM(inmat, outmat): # Doing Inverse of transformation matrix
     print('inverse finished', outmat, '\n')
     
 def doConcatXFM(inmat1, inmat2, outmat): # Doing Concatenation of transformation matrices
+    '''
+    Parameters
+    ----------
+    inmat1 : str
+        path containing the first input transformation matrix.
+    inmat2 : str
+        path containing the second input transformation matrix.
+    outmat : str
+        path to store output transformation matrix.
+    
+    Returns
+    -------
+    a combined transformation matrix of the two input matrices
+    '''
     print('doing concat of', inmat1, inmat2)
     cont = fsl.ConvertXFM() 
     cont.inputs.in_file = inmat1
@@ -145,6 +291,20 @@ def doConcatXFM(inmat1, inmat2, outmat): # Doing Concatenation of transformation
     print('Concatenation finished', outmat, '\n')
     
 def doApplyMasking(infile, maskfile, outfile): # Doing Masking of input image with a given mask
+    '''
+    Parameters
+    ----------
+    infile : str
+        path containing the image to be masked.
+    maskfile : str
+        path to store mask of the input image.
+    outfile : str
+        path to store masked version of the input image.
+    
+    Returns
+    -------
+    both mask and masked version of input image
+    '''
     print('doing masking of', infile)
     mask = fsl.ApplyMask() 
     mask.inputs.in_file = infile
@@ -154,6 +314,26 @@ def doApplyMasking(infile, maskfile, outfile): # Doing Masking of input image wi
     print('masking finished', outfile, '\n')
     
 def doApplyXFM(infile, inmat, ref, outfile, intertype, tag): # Doing transformation using existing mat files
+    '''
+    Parameters
+    ----------
+    infile : str
+        path containing the input image.
+    inmat : str
+        path containing the input transformation matrix.
+    ref : str
+        path containing the standard MNI_T1_1mm template.
+    outfile : str
+        path to save the output image.
+    intertype : str
+        string containing the interpolation type during transformation. e.g. spline, etc.
+    tag : str
+        tag to identify the image type.e.g. T1, T2, FLAIR etc.
+    
+    Returns
+    -------
+    an image with input transformation applied
+    '''
     print('doing transformation/cropping using trasformation/cropping matrix', tag, infile)
     applyxfm = fsl.ApplyXFM()
     applyxfm.inputs.apply_xfm = True
@@ -168,17 +348,31 @@ def doApplyXFM(infile, inmat, ref, outfile, intertype, tag): # Doing transformat
     applyxfm.run()
     print(tag, 'is transformed/cropped', outfile, '\n')
     
-def doCalculateSimilarity(infile, reference, inmask, refmask, costfun, tag):
-    print('calculating the registration similarity b/w', infile, reference, '\n')
-    sim = ants.MeasureImageSimilarity()
-    sim.inputs.dimension = 3
-    sim.inputs.metric = costfun
-    sim.inputs.fixed_image = reference
-    sim.inputs.moving_image = infile
-    sim.inputs.metric_weight = 1.0
-    sim.inputs.radius_or_number_of_bins = 5
-    sim.inputs.sampling_strategy = 'Regular'
-    sim.inputs.sampling_percentage = 1.0
-    sim.inputs.fixed_image_mask = refmask
-    sim.inputs.moving_image_mask = inmask
-    sim.run()
+def do_json_combine(path, remove_individual_json): # combine all json files into a single json
+    '''
+    Parameters
+    ----------
+    path : str
+        path containing the json files.
+    remove_individual_json: boolean
+        removes individual json files if true
+
+    Returns
+    -------
+        a json file with individual json files merged together
+    '''
+    split_path = path.split('/')
+    
+    reg_folder = os.path.join('/', split_path[1], split_path[2], split_path[3], split_path[4], split_path[5], 'reg_check')
+    result = []
+    result.append({'subject_id': split_path[5]})
+    print(f'merging all available json files at {path}\n')
+    for f in os.listdir(reg_folder):
+        with open(reg_folder+'/'+f, 'r') as infile:
+            result.append(json.load(infile))
+        if remove_individual_json:
+            os.remove(reg_folder+'/'+f)
+
+    with open(reg_folder+'/'+'merged_file.json', 'w') as merged_json:
+        json.dump(result, merged_json)
+    print(f'all json files are merged into {merged_json}\n')

@@ -6,6 +6,19 @@ import os
 from nipype.interfaces import freesurfer
 
 def doCheckforT2andFLAIR(path):
+    '''
+    Parameters
+    ----------
+    path : str
+        path to the input image.
+
+    Returns
+    -------
+    isT2 : boolean
+        returns true if a T2 image is present.
+    isFLAIR : boolean
+        returns true if a FLAIR image is present.
+    '''
     images = os.listdir(path)
     isT2 = False
     isFLAIR = False
@@ -16,7 +29,21 @@ def doCheckforT2andFLAIR(path):
             isFLAIR = True
     return isT2, isFLAIR
 
-def fsProcessing(data_dir, subject, tag):
+def fs_Processing(data_dir, subject, tag):
+    '''
+    Parameters
+    ----------
+    data_dir : str
+        path to the subject directory.
+    subject : str
+        subject id.
+    tag : str
+        containing the image type.
+
+    Returns
+    -------
+    all freesufer files at FS_Subjects_DIR
+    '''
     datapath = data_dir+'/'+subject+'/anat' # raw image
     datapathAlign = data_dir+'/'+subject+'/align'# rigid transformed
     if os.path.exists(datapath) and os.listdir(datapath):
