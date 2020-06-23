@@ -1,0 +1,5 @@
+echo "Will call $0.py"
+echo "with ${NMRI_TOOLS}/conda_nipype/bin/python"
+echo
+exec "${NMRI_TOOLS}/conda_nipype/bin/python" "$0.py" "$@"
+

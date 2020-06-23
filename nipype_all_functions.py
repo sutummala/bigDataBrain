@@ -348,12 +348,14 @@ def doApplyXFM(infile, inmat, ref, outfile, intertype, tag): # Doing transformat
     applyxfm.run()
     print(tag, 'is transformed/cropped', outfile, '\n')
     
-def do_json_combine(path, remove_individual_json): # combine all json files into a single json
+def do_json_combine(reg_folder, subject, remove_individual_json): # combine all json files into a single json
     '''
     Parameters
     ----------
-    path : str
+    reg_folder : str
         path containing the json files.
+    subject : str
+        subject id.
     remove_individual_json: boolean
         removes individual json files if true
 
@@ -361,12 +363,10 @@ def do_json_combine(path, remove_individual_json): # combine all json files into
     -------
         a json file with individual json files merged together
     '''
-    split_path = path.split('/')
     
-    reg_folder = os.path.join('/', split_path[1], split_path[2], split_path[3], split_path[4], split_path[5], 'reg_check')
     result = []
-    result.append({'subject_id': split_path[5]})
-    print(f'merging all available json files at {path}\n')
+    result.append({'subject_id': subject})
+    print(f'merging all available json files at {reg_folder}\n')
     for f in os.listdir(reg_folder):
         with open(reg_folder+'/'+f, 'r') as infile:
             result.append(json.load(infile))
@@ -374,5 +374,5 @@ def do_json_combine(path, remove_individual_json): # combine all json files into
             os.remove(reg_folder+'/'+f)
 
     with open(reg_folder+'/'+'merged_file.json', 'w') as merged_json:
-        json.dump(result, merged_json)
+        json.dump(result, merged_json, indent = 4)
     print(f'all json files are merged into {merged_json}\n')

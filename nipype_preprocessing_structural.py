@@ -18,7 +18,6 @@ def do_registration_quality(*args):
     Returns
     -------
     computed registration cost.
-
     '''
     
     if args[1].find('alignedToT1') == -1:
@@ -44,16 +43,17 @@ def do_registration_quality(*args):
         
     split_path = args[1].split('/')
     
-    reg_folder = os.path.join('/', split_path[1], split_path[2], split_path[3], split_path[4], split_path[5], 'reg_check')
+    reg_folder = os.path.join('/', split_path[1], split_path[2], split_path[3], split_path[4], split_path[5], 'reg_check') # this could be changed based on actual path
     print(f'saving flags at {reg_folder}\n')
     
     if not os.path.exists(reg_folder):
         os.makedirs(reg_folder)
         
     save_file = split_path[7][:-4]+'.json'
-    print(f'reg flag file saved is {save_file}')
-
-    if local_cost[0] >= thr:
+    print(f'reg file saved as {save_file}')
+    
+    epsilon = 0.009 # small margin
+    if local_cost[0] > thr-epsilon:
         print(f'registration between {args[0]} and {args[1]} is fine\n')
         flag = True
         # np.savetxt(saving_folder+'/'+save_file, [1], fmt = '%d')
@@ -66,11 +66,11 @@ def do_registration_quality(*args):
         flag = None
         # np.savetxt(saving_folder+'/'+save_file, [-1], fmt = '%d')
     
-    # saving the data as .jason file
+    # saving the data as json
     save_data = {'file_name': split_path[7], 'cost_name': args[2], 'cost_actual': local_cost[0], 'cost_threshold': thr, 'cost_threshold_critical': thr_critical, 'reg_flag': flag}
     
     with open(reg_folder+'/'+save_file, 'w') as file:
-        json.dump(save_data, file)
+        json.dump(save_data, file, indent = 4)
                 
 # realignning and averaging if two series are found
 def do_Align_Average(datapath, datapathMat, infile1, infile2, outfile):
@@ -91,7 +91,6 @@ def do_Align_Average(datapath, datapathMat, infile1, infile2, outfile):
     Returns
     -------
     realigned and averaged version of image1 and image2
-
     '''
     
     if infile2.endswith('.gz'):

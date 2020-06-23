@@ -16,17 +16,15 @@ align_path = sub_path+'/align'
 mni_path = sub_path+'/mni'
 
 def modify_rots(mat):
-    mat_new = np.ones([3,3])
+    mat_new = np.zeros([3,3])
     for i in range(3):
         for j in range(3):
-            if i!=j:
-                mat_new[i,j] = 0 # making shear factors to zero
-            else:
+            if i==j:
                 mat_new[i,j] = mat[i,j]
     return mat_new
 
 for matfile in os.listdir(mat_path):
-    if matfile.endswith('t1-align.mat'):
+    if matfile.endswith('t1-mni.mat'):
         mat_orig = np.loadtxt(mat_path+'/'+matfile)
         print(f'original matrix: {mat_orig}\n')
         scales, trans, rots = dctm.decompose(mat_orig, angles = False)
@@ -45,7 +43,7 @@ for matfile in os.listdir(mat_path):
         print(f'modified matrix: {mat_modified}\n')
         for imgfile in os.listdir(img_path):
             if imgfile.endswith('reoriented.nii') and 'hrT1' in imgfile:
-                outfile = imgfile[0:-4]+'.test.nii'
+                outfile = imgfile[0:-4]+'.align_from_affine.nii'
                 if 0:
                     naf.doApplyXFM(img_path+'/'+imgfile, mat_path+'/'+matfile_new, ref, align_path+'/'+outfile, 'spline', 'hrT1')
         

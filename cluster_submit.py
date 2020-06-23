@@ -3,16 +3,16 @@
 import os
 import sys
 
-data_dir = '/usr/users/tummala/bigdata1'
+data_dir = '/usr/users/tummala/IXI-Re'
 
 for subject in os.listdir(data_dir):
     ''' submits jobs to the cluster, one for each subject'''
 
     cmd = sys.executable
-    cmd += " "+"/usr/users/tummala/python/gen_test_images_compute_reg_cost_grid.py"
+    cmd += " "+"/usr/users/tummala/python/main_structural_grid.py"
     cmd += f' {data_dir} {subject}'
     
-    os.system(f'nmri_qsub -cpus 1 -runtime 1440 -title {subject} {cmd}')
+    os.system(f'nmri_qsub -cpus 4 -runtime 1440 -title {subject} {cmd}')
         
 
       

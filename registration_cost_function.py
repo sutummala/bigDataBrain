@@ -27,10 +27,10 @@ def compute_local_similarity(ref_image, moving_image, cost_func, voi_size):
     '''
     x,y,z = np.shape(ref_image)
     cost_vector = []
-    bar = progressbar.ProgressBar(maxval= x, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
-    bar.start()
+    #bar = progressbar.ProgressBar(maxval= x, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+    #bar.start()
     for i in range(x-voi_size):
-        bar.update(i+1)
+        #bar.update(i+1)
         for j in range(y-voi_size):
             for k in range(z-voi_size):
                 ref_voi = ref_image[i:i+voi_size, j:j+voi_size, k:k+voi_size]
@@ -49,7 +49,7 @@ def compute_local_similarity(ref_image, moving_image, cost_func, voi_size):
                     cost_vector.append(acf.nmi(ref_voi, moving_voi))
                 else:
                     print('cost function is not defined\n')
-    bar.finish()
+    #bar.finish()
     cost_vector = np.array(cost_vector)
     
     print(f'local similarity ({cost_func}) between reference and moving computed is: {np.average(cost_vector[~np.isnan(cost_vector)])}\n')

@@ -8,7 +8,7 @@ from multiprocessing import cpu_count
 import nipype_preprocessing_main as npm
 import nipype_freesurfer_processing as nfs
 
-data_dir = "/usr/users/tummala/HCP-YA-Re" # Path to the subjects data directory
+data_dir = "/usr/users/tummala/IXI-Re" # Path to the subjects data directory
 subjects = sorted(os.listdir(data_dir)) # Finds subjects in the data directory
 print('Found', len(subjects), 'Subjects\n')
 

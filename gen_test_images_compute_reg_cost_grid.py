@@ -206,17 +206,17 @@ image_types = ['hrT1', 'hrT2', 'hrFLAIR']
 costs = ['ncc', 'nmi']
 reg_types = ['align', 'mni']
 
-# for image_type in image_types:
-#     for reg_type in reg_types:
-#         # generating test images for each img_type
-#         generate_test_images(image_type, reg_type, no_of_test_images = 10) # generate 10 test images for each subject
-#         for cost in costs:
-#             # computing cost for test images (T1, T2 and FLAIR)
-#             compute_test_cost_vectors(reg_type, cost, image_type)
+for image_type in image_types:
+    for reg_type in reg_types:
+        # generating test images for each img_type
+        generate_test_images(image_type, reg_type, no_of_test_images = 5) # generate test images for each subject
+        for cost in costs:
+            # computing cost for test images (T1, T2 and FLAIR)
+            compute_test_cost_vectors(reg_type, cost, image_type)
             
 for image_type in image_types[1:]:
     # genrating test images for co-reg of T2/FLAIR brain to T1 brain
-    generate_coreg_test_images(image_type, no_of_test_images = 10) # generate 10 test images for each subject
+    generate_coreg_test_images(image_type, no_of_test_images = 5) # generate test images for each subject
     for cost in costs:
         # computing cost for test images of T2/FLAIR brain aligned to T1 brain
         compute_coreg_test_cost_vectors(cost, image_type)
