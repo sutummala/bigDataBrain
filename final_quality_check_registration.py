@@ -6,7 +6,7 @@ import json
 import nipype_all_functions as naf
 import plot_slices as ps
 
-data_path = '/usr/users/tummala/IXI-Re'
+data_path = '/usr/users/tummala/HCP-YA-Re'
 
 merge_json = False
 save_image = False
