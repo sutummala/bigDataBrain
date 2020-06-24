@@ -12,7 +12,7 @@ merge_json = False
 save_image = False
 all_counter = 0
 success_counter = 0
-epsilon = 0.011
+epsilon = 0.009
 subjects_counter = 0
 
 subjects = sorted(os.listdir(data_path))
@@ -44,7 +44,7 @@ for subject in subjects:
                 elif data['cost_actual'] <= data['cost_threshold']-epsilon:
                     print('image reguired manual checking for:', data['file_name'], '\n')
                 elif data['cost_actual'] <= data['cost_threshold_critical']:
-                    print('image may not be suitable for further processing:', data['file_name'], '\n')
+                    print('image may not be aligned correctly may not be suitable for further processing:', data['file_name'], '\n')
                 
                 # write back the updated reg_flag to the corresponding json file
                 with open(reg_path+'/'+json_file, 'w') as out_json:

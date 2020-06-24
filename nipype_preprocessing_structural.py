@@ -19,28 +19,6 @@ def do_registration_quality(*args):
     -------
     computed registration cost.
     '''
-    
-    if args[1].find('alignedToT1') == -1:
-        print(f'checking registration quality b/w MNI T1_1mm template and {args[1]} with cost {args[2]}\n')
-        global_cost, local_cost = rcf.do_check_registration(args[0], args[1], args[2], voi_size = 5, masking = True, measure_global = False, measure_local = True)
-        if args[2] == 'ncc':
-            thr = 0.35
-            thr_critical = 0.17
-        elif args[2] == 'nmi':
-            thr = 0.30
-            thr_critical = 0.15
-    else:
-        print(f'checking registration quality b/w T1 brain and {args[1]} with cost {args[2]}\n')
-        global_cost, local_cost = rcf.do_check_coregistration(args[0], args[1], args[2], voi_size = 5, masking = True, measure_global = False, measure_local = True)
-        if args[2] == 'ncc':
-            thr = 0.33
-            thr_critical = 0.17
-        elif args[2] == 'nmi':
-            thr = 0.25
-            thr_critical = 0.13
-    
-    print(f'actual thr is {local_cost[0]} and cut-off thr is {thr}, critical thr is {thr_critical}\n')
-        
     split_path = args[1].split('/')
     
     reg_folder = os.path.join('/', split_path[1], split_path[2], split_path[3], split_path[4], split_path[5], 'reg_check') # this could be changed based on actual path
@@ -50,27 +28,47 @@ def do_registration_quality(*args):
         os.makedirs(reg_folder)
         
     save_file = split_path[7][:-4]+'.json'
-    print(f'reg file saved as {save_file}')
     
-    epsilon = 0.009 # small margin
-    if local_cost[0] > thr-epsilon:
-        print(f'registration between {args[0]} and {args[1]} is fine\n')
-        flag = True
-        # np.savetxt(saving_folder+'/'+save_file, [1], fmt = '%d')
-    elif local_cost[0] < thr and local_cost[0] >= thr_critical:
-        print(f'registration needs manual checking for {args[1]}\n')
-        flag = False
-        # np.savetxt(saving_folder+'/'+save_file, [0], fmt = '%d')
-    elif local_cost[0] < thr_critical:
-        print(f'registration is bad for {args[1]}, ignore the subject\n')
-        flag = None
-        # np.savetxt(saving_folder+'/'+save_file, [-1], fmt = '%d')
-    
-    # saving the data as json
-    save_data = {'file_name': split_path[7], 'cost_name': args[2], 'cost_actual': local_cost[0], 'cost_threshold': thr, 'cost_threshold_critical': thr_critical, 'reg_flag': flag}
-    
-    with open(reg_folder+'/'+save_file, 'w') as file:
-        json.dump(save_data, file, indent = 4)
+    if os.path.exists(reg_folder+'/'+save_file) and os.path.getsize(reg_folder+'/'+save_file) > 0:
+        print(f'cost already computed and saved at {save_file}\n')
+    else:
+        if args[1].find('alignedToT1') == -1:
+            print(f'checking registration quality b/w MNI T1_1mm template and {args[1]} with cost {args[2]}\n')
+            global_cost, local_cost = rcf.do_check_registration(args[0], args[1], args[2], voi_size = 5, masking = True, measure_global = False, measure_local = True)
+            if args[2] == 'ncc':
+                thr = 0.35
+                thr_critical = 0.17
+            elif args[2] == 'nmi':
+                thr = 0.30
+                thr_critical = 0.15
+        else:
+            print(f'checking registration quality b/w T1 brain and {args[1]} with cost {args[2]}\n')
+            global_cost, local_cost = rcf.do_check_coregistration(args[0], args[1], args[2], voi_size = 5, masking = True, measure_global = False, measure_local = True)
+            if args[2] == 'ncc':
+                thr = 0.33
+                thr_critical = 0.17
+            elif args[2] == 'nmi':
+                thr = 0.25
+                thr_critical = 0.13
+        
+        print(f'actual thr is {local_cost[0]} and cut-off thr is {thr}, critical thr is {thr_critical}\n')
+        
+        epsilon = 0.009 # small margin
+        if local_cost[0] > thr-epsilon:
+            print(f'registration between {args[0]} and {args[1]} is fine\n')
+            flag = True
+        elif local_cost[0] < thr and local_cost[0] >= thr_critical:
+            print(f'registration needs manual checking for {args[1]}\n')
+            flag = False
+        elif local_cost[0] < thr_critical:
+            print(f'registration is bad for {args[1]}, ignore the subject\n')
+            flag = None
+        
+        # saving the data as json
+        save_data = {'file_name': split_path[7], 'cost_name': args[2], 'cost_actual': local_cost[0], 'cost_threshold': thr, 'cost_threshold_critical': thr_critical, 'reg_flag': flag}
+        
+        with open(reg_folder+'/'+save_file, 'w') as file:
+            json.dump(save_data, file, indent = 4)
                 
 # realignning and averaging if two series are found
 def do_Align_Average(datapath, datapathMat, infile1, infile2, outfile):
@@ -143,7 +141,7 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
     refmask = refpath+'/'+'MNI152_T1_1mm_brain_mask.nii.gz' # MNI brain mask
     
     alltags = {'hrT1', 'hrT1.A', 'hrT1.B','hrT1.M','hrT2', 'hrT2.A', 'hrT2.B', 'hrT2.M', 'hrFLAIR', 'hrFLAIR.A', 'hrFLAIR.B', 'hrFLAIR.M', 'hrPD', 'hrPD.A', 'hrPD.B', 'hrPD.M'}
-    check_reg = 1
+    check_reg = True
     
     if image.endswith('nii.gz'):
         if maintag in alltags: # It is used to properly assign extensions (by getting rid of nii.gz) for files generated during processing
