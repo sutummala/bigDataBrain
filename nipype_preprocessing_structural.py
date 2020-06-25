@@ -22,7 +22,6 @@ def do_registration_quality(*args):
     split_path = args[1].split('/')
     
     reg_folder = os.path.join('/', split_path[1], split_path[2], split_path[3], split_path[4], split_path[5], 'reg_check') # this could be changed based on actual path
-    print(f'saving flags at {reg_folder}\n')
     
     if not os.path.exists(reg_folder):
         os.makedirs(reg_folder)
@@ -30,10 +29,10 @@ def do_registration_quality(*args):
     save_file = split_path[7][:-4]+'.json'
     
     if os.path.exists(reg_folder+'/'+save_file) and os.path.getsize(reg_folder+'/'+save_file) > 0:
-        print(f'cost already computed and saved at {save_file}\n')
+        print(f'cost already computed for {args[1]} and saved as {save_file} at {reg_folder}\n')
     else:
         if args[1].find('alignedToT1') == -1:
-            print(f'checking registration quality b/w MNI T1_1mm template and {args[1]} with cost {args[2]}\n')
+            print(f'checking registration quality b/w MNI T1_1mm template and {args[1]} with cost {args[2]}...\n')
             global_cost, local_cost = rcf.do_check_registration(args[0], args[1], args[2], voi_size = 5, masking = True, measure_global = False, measure_local = True)
             if args[2] == 'ncc':
                 thr = 0.35
@@ -42,7 +41,7 @@ def do_registration_quality(*args):
                 thr = 0.30
                 thr_critical = 0.15
         else:
-            print(f'checking registration quality b/w T1 brain and {args[1]} with cost {args[2]}\n')
+            print(f'checking registration quality b/w T1 brain and {args[1]} with cost {args[2]}...\n')
             global_cost, local_cost = rcf.do_check_coregistration(args[0], args[1], args[2], voi_size = 5, masking = True, measure_global = False, measure_local = True)
             if args[2] == 'ncc':
                 thr = 0.33
@@ -69,6 +68,8 @@ def do_registration_quality(*args):
         
         with open(reg_folder+'/'+save_file, 'w') as file:
             json.dump(save_data, file, indent = 4)
+        
+        print(f'saved {save_file} at {reg_folder}\n')
                 
 # realignning and averaging if two series are found
 def do_Align_Average(datapath, datapathMat, infile1, infile2, outfile):
@@ -446,22 +447,22 @@ def preProcessing(datapath, datapathAlign, datapathMat, datapathMni, refpath, im
             naf.doConcatXFM(matT2Cro, matT2croppedtoT1, matT2toT1) # T2 to T1
         
         if os.path.exists(matT2toAlign):
-            print('T2 to MNI matrix already computed', matT2toAlign)
+            print('T2 to MNI matrix already computed', matT2toAlign, '\n')
         else:
             naf.doConcatXFM(matT2toT1, matT1toAlign, matT2toAlign) # T2 to Align
             
         if os.path.exists(matT2toMNI):
-            print('T2 to MNI matrix already computed', matT2toMNI)
+            print('T2 to MNI matrix already computed', matT2toMNI, '\n')
         else:
             naf.doConcatXFM(matT2toT1, matT1toMNI, matT2toMNI) # T2 to MNI
         
         if os.path.exists(matT2croppedtoAlign):
-            print('T2 to Align matrix already computed', matT2croppedtoAlign)
+            print('T2 to Align matrix already computed', matT2croppedtoAlign, '\n')
         else:
             naf.doConcatXFM(matT2croppedtoT1, matT1toAlign, matT2croppedtoAlign) # T2 cropped to Align
             
         if os.path.exists(matT2croppedtoMNI):
-            print('T2 to MNI matrix already computed', matT2croppedtoMNI)
+            print('T2 to MNI matrix already computed', matT2croppedtoMNI, '\n')
         else:
             naf.doConcatXFM(matT2croppedtoT1, matT1toMNI, matT2croppedtoMNI) # T2 cropped to MNI
             

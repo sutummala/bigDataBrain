@@ -135,7 +135,9 @@ def plot_image_in_slices(required_folder, fig_path, file, no_of_slices, show_plo
     fig.set_tight_layout('tight')
     
     if show_plot:
-        plt.show()
+        plt.show(block = False)
+        plt.pause(5)
+        plt.close()
     else:
         save_fig = file[:-4]+'.png'
         plt.savefig(fig_path+'/'+save_fig, facecolor = (0,0,0), edgecolor = (0,0,0))

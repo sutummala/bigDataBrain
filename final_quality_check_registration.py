@@ -9,7 +9,7 @@ import plot_slices as ps
 data_path = '/usr/users/tummala/HCP-YA-Re'
 
 merge_json = False
-save_image = False
+save_or_show_image = True
 all_counter = 0
 success_counter = 0
 epsilon = 0.009
@@ -34,7 +34,15 @@ for subject in subjects:
             if os.path.getsize(reg_path+'/'+json_file) > 0: # making sure that the file is not empty
                 with open(reg_path+'/'+json_file) as in_json:
                     data = json.load(in_json)
-        
+                    
+                if data['file_name'].find('align.') != -1:
+                    required_path = os.path.join(data_path, subject, 'align')
+                elif data['file_name'].find('mni') != -1:
+                    required_path = os.path.join(data_path, subject, 'mni')
+                elif data['file_name'].find('alignedToT1') != -1:
+                    required_path = os.path.join(data_path, subject, 'anat')
+                
+                # checking the registration flag
                 if data['reg_flag']:
                     success_counter += 1
                     #print('registration is fine for:', data['file_name'], '\n')
@@ -43,22 +51,17 @@ for subject in subjects:
                     data['reg_flag'] = True # changing the flag to True
                 elif data['cost_actual'] <= data['cost_threshold']-epsilon:
                     print('image reguired manual checking for:', data['file_name'], '\n')
+                    image_name = required_path+'/'+data['file_name']
+                    os.system(f'fsleyes {image_name}')
                 elif data['cost_actual'] <= data['cost_threshold_critical']:
                     print('image may not be aligned correctly may not be suitable for further processing:', data['file_name'], '\n')
                 
                 # write back the updated reg_flag to the corresponding json file
                 with open(reg_path+'/'+json_file, 'w') as out_json:
                     json.dump(data, out_json, indent = 4)
-                
-                if data['file_name'].find('align.') != -1:
-                    required_path = os.path.join(data_path, subject, 'align')
-                elif data['file_name'].find('mni') != -1:
-                    required_path = os.path.join(data_path, subject, 'mni')
-                elif data['file_name'].find('alignedToT1') != -1:
-                    required_path = os.path.join(data_path, subject, 'anat')
                     
                 # save the required image along with its brain outline in png format
-                if save_image:
+                if save_or_show_image:
                     ps.plot_image_in_slices(required_path, fig_path, data['file_name'], no_of_slices = 3, show_plot = False, plot_binary_mask = True, plot_outline = True, mask_alpha = 0.1,
                                         outline_alpha = 0.6, outline_thickness = 2, use_all_contours = True, outline_color = (200, 100, 20))
                        
