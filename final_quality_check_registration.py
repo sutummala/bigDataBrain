@@ -30,6 +30,7 @@ for subject in subjects:
         subjects_counter += 1
         for json_file in os.listdir(reg_path):
             all_counter += 1
+            manual_check = False
             #print(f'checking for {json_file}\n')
             if os.path.getsize(reg_path+'/'+json_file) > 0: # making sure that the file is not empty
                 with open(reg_path+'/'+json_file) as in_json:
@@ -50,9 +51,10 @@ for subject in subjects:
                     success_counter += 1
                     data['reg_flag'] = True # changing the flag to True
                 elif data['cost_actual'] <= data['cost_threshold']-epsilon:
-                    print('image reguired manual checking for:', data['file_name'], '\n')
+                    print('manual checking required for:', data['file_name'], '\n')
                     image_name = required_path+'/'+data['file_name']
-                    os.system(f'fsleyes {image_name}')
+                    manual_check = True
+                    #os.system(f'fsleyes {image_name}')
                 elif data['cost_actual'] <= data['cost_threshold_critical']:
                     print('image may not be aligned correctly may not be suitable for further processing:', data['file_name'], '\n')
                 
@@ -61,8 +63,8 @@ for subject in subjects:
                     json.dump(data, out_json, indent = 4)
                     
                 # save the required image along with its brain outline in png format
-                if save_or_show_image:
-                    ps.plot_image_in_slices(required_path, fig_path, data['file_name'], no_of_slices = 3, show_plot = False, plot_binary_mask = True, plot_outline = True, mask_alpha = 0.1,
+                if save_or_show_image and manual_check:
+                    ps.plot_image_in_slices(required_path, fig_path, data['file_name'], no_of_slices = 3, show_plot = True, plot_binary_mask = True, plot_outline = True, mask_alpha = 0.1,
                                         outline_alpha = 0.6, outline_thickness = 2, use_all_contours = True, outline_color = (200, 100, 20))
                        
     # if merging json is requested    

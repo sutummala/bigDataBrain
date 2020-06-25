@@ -50,7 +50,7 @@ def do_registration_quality(*args):
                 thr = 0.25
                 thr_critical = 0.13
         
-        print(f'actual thr is {local_cost[0]} and cut-off thr is {thr}, critical thr is {thr_critical}\n')
+        print(f'actual cost is {local_cost[0]} and cut-off cost is {thr}, critical threshold is {thr_critical}\n')
         
         epsilon = 0.009 # small margin
         if local_cost[0] > thr-epsilon:

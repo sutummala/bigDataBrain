@@ -69,7 +69,12 @@ def plot_image_in_slices(required_folder, fig_path, file, no_of_slices, show_plo
     '''
     refpath = "/usr/users/nmri/tools/fsl/6.0.3/data/standard" # FSL template
     refbrain_path = refpath+'/MNI152_T1_1mm_brain_mask.nii.gz' # brain mask MNI 
-
+    
+    if show_plot:
+        print(f'displaying for {file}\n')
+    else:
+        print(f'saving figure for {file} in .png format to {fig_path}')
+        
     image = nib.load(required_folder+'/'+file) # actual image
     image_data = image.get_fdata()
     x, y, z = image_data.shape
@@ -136,7 +141,7 @@ def plot_image_in_slices(required_folder, fig_path, file, no_of_slices, show_plo
     
     if show_plot:
         plt.show(block = False)
-        plt.pause(5)
+        plt.pause(10)
         plt.close()
     else:
         save_fig = file[:-4]+'.png'
