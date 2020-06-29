@@ -363,7 +363,6 @@ def do_json_combine(reg_folder, subject, remove_individual_json): # combine all 
     -------
         a json file with individual json files merged together
     '''
-    
     result = []
     result.append({'subject_id': subject})
     print(f'merging all available json files at {reg_folder}\n')
@@ -376,3 +375,59 @@ def do_json_combine(reg_folder, subject, remove_individual_json): # combine all 
     with open(reg_folder+'/'+'merged_file.json', 'w') as merged_json:
         json.dump(result, merged_json, indent = 4)
     print(f'all json files are merged into {merged_json}\n')
+    
+def do_spm_new_segment(tpm_file, infile):
+    '''
+    Parameters
+    ----------
+    tpm_file : str
+        full path to the TPM.nii file in the SPM12 directory.
+    infile : str
+        full path to the T1-weighted image.
+
+    Returns
+    -------
+    gray matter, white matter and CSF probability maps in native space.
+
+    '''
+    seg = spm.NewSegment()
+    seg.inputs.affine_regularization = 'mni'
+    seg.inputs.sampling_distance = 2
+    seg.inputs.channel_files = infile # T1-weighted image
+    seg.inputs.channel_info = (0.0001, 60, (False, False))
+    tissue1 = ((tpm_file, 1), 2, (True,False), (False, False))
+    tissue2 = ((tpm_file, 2), 2, (True,False), (False, False))
+    tissue3 = ((tpm_file, 3), 2, (True,False), (False, False))
+    tissue4 = ((tpm_file, 4), 2, (False,False), (False, False))
+    tissue5 = ((tpm_file, 5), 2, (False,False), (False, False))
+    seg.inputs.tissues = [tissue1, tissue2, tissue3, tissue4, tissue5]
+    seg.run()
+    
+def do_spm_new_segment_multi_channel(tpm_file, *infiles):
+    '''
+    Parameters
+    ----------
+    tpm_file : str
+        full path to the TPM.nii file in the SPM12 directory.
+    *infiles : str
+        full paths to the T1-weighted image and the corresponding co-registered T2/FLAIR image.
+
+    Returns
+    -------
+    gray matter, white matter and CSF probability maps in native space.
+
+    '''
+    seg = spm.MultiChannelNewSegment()
+    seg.inputs.affine_regularization = 'mni'
+    seg.inputs.sampling_distance = 2
+    channel1= (infiles[0],(0.0001, 60, (False, False))) # T1-weighted image
+    channel2= (infiles[1],(0.0001, 60, (False, False))) # T2/FLAIR and it should be co-registered to the corresponding T1 before segmentation
+    seg.inputs.channels = [channel1, channel2]
+    tissue1 = ((tpm_file, 1), 2, (True,False), (False, False))
+    tissue2 = ((tpm_file, 2), 2, (True,False), (False, False))
+    tissue3 = ((tpm_file, 3), 2, (True,False), (False, False))
+    tissue4 = ((tpm_file, 4), 2, (False,False), (False, False))
+    tissue5 = ((tpm_file, 5), 2, (False,False), (False, False))
+    seg.inputs.tissues = [tissue1, tissue2, tissue3, tissue4, tissue5]
+    seg.run() 
+    
