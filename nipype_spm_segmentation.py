@@ -4,10 +4,7 @@
 import os
 import nipype_all_functions as naf
 
-data_path = '/usr/users/tummala/HCP-YA-Re'
 tpm_image = '/usr/users/nmri/tools/spm/spm12_7487/tpm/TPM.nii'
-
-subjects = os.listdir(data_path)
 
 def get_file_name_and_extension(infile):
     '''
@@ -18,9 +15,9 @@ def get_file_name_and_extension(infile):
 
     Returns
     -------
-    TYPE
+    TYPE: str
         main name of the filename.
-    TYPE
+    TYPE: str
         extension of the filename.
     '''
     main_1, ext_1 = os.path.splitext(infile)
@@ -30,7 +27,7 @@ def get_file_name_and_extension(infile):
     else:
         return main_1, ext_1
 
-def do_spm_segmentation(data_path, subject, image_type):
+def do_spm_segmentation(data_path, subject, image_type, multi_channel):
     '''
     Parameters
     ----------
@@ -76,7 +73,10 @@ def do_spm_segmentation(data_path, subject, image_type):
                             main_name, ext = get_file_name_and_extension(T2_image)
                             outfile = main_name+'.alignedToT1'+ext
                             naf.doApplyXFM(os.path.join(raw_path, T2_image), os.path.join(mats_path, mat_file), os.path.join(raw_path, T1_image), os.path.join(raw_path, outfile), 'spline', 'T2')
-                            naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(raw_path, T1_image), os.path.join(raw_path, T2_image))
+                            if multi_channel:
+                                naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(raw_path, T1_image), os.path.join(raw_path, T2_image))
+                            else:
+                                naf.do_spm_new_segment(tpm_image, os.path.join(raw_path, T1_image))
                 elif FLAIR_flag:
                     print(f'both T1 and FLAIR raw images are present for {subject}')
                     for mat_file in os.listdir(mats_path):
@@ -84,7 +84,10 @@ def do_spm_segmentation(data_path, subject, image_type):
                             main_name, ext = get_file_name_and_extension(FLAIR_image)
                             outfile = main_name+'.alignedToT1'+ext
                             naf.doApplyXFM(os.path.join(raw_path, FLAIR_image), os.path.join(mats_path, mat_file), os.path.join(raw_path, T1_image), os.path.join(raw_path, outfile), 'spline', 'FLAIR')
-                            naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(raw_path, T1_image), os.path.join(raw_path, FLAIR_image))
+                            if multi_channel:
+                                naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(raw_path, T1_image), os.path.join(raw_path, FLAIR_image))
+                            else:
+                                naf.do_spm_new_segment(tpm_image, os.path.join(raw_path, T1_image))
                 elif T2_flag and FLAIR_flag:
                     print(f'all T1, T2 and FLAIR raw image are present for {subject}, using FLAIR along with T1')
                     for mat_file in os.listdir(mats_path):
@@ -92,7 +95,10 @@ def do_spm_segmentation(data_path, subject, image_type):
                             main_name, ext = get_file_name_and_extension(FLAIR_image)
                             outfile = main_name+'.alignedToT1'+ext
                             naf.doApplyXFM(os.path.join(raw_path, FLAIR_image), os.path.join(mats_path, mat_file), os.path.join(raw_path, T1_image), os.path.join(raw_path, outfile), 'spline', 'FLAIR')
-                            naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(raw_path, T1_image), os.path.join(raw_path, FLAIR_image))
+                            if multi_channel:
+                                naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(raw_path, T1_image), os.path.join(raw_path, FLAIR_image))
+                            else:
+                                naf.do_spm_new_segment(tpm_image, os.path.join(raw_path, T1_image))
                 else:
                     print(f'only T1 image is present for the subject {subject}')
                     naf.do_spm_new_segment(tpm_image, os.path.join(raw_path, T1_image))
@@ -115,16 +121,25 @@ def do_spm_segmentation(data_path, subject, image_type):
                 print(f'T1-image is present for the subject {subject}')
                 if T2_flag:
                     print(f'both T1 and T2 aligned images are present for {subject}')
-                    naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(raw_path, T1_image), os.path.join(raw_path, T2_image))
+                    if multi_channel:
+                        naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(align_path, T1_image), os.path.join(align_path, T2_image))
+                    else:
+                        naf.do_spm_new_segment(tpm_image, os.path.join(align_path, T1_image))
                 elif FLAIR_flag:
                     print(f'both T1 and FLAIR aligned images are present for {subject}')
-                    naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(raw_path, T1_image), os.path.join(raw_path, FLAIR_image))
+                    if multi_channel:
+                        naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(align_path, T1_image), os.path.join(align_path, FLAIR_image))
+                    else:
+                        naf.do_spm_new_segment(tpm_image, os.path.join(align_path, T1_image))
                 elif T2_flag and FLAIR_flag:
                     print(f'all T1, T2 and FLAIR raw image are present for {subject}, using FLAIR along with T1')
-                    naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(raw_path, T1_image), os.path.join(raw_path, FLAIR_image))
+                    if multi_channel:
+                        naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(align_path, T1_image), os.path.join(align_path, FLAIR_image))
+                    else:
+                        naf.do_spm_new_segment(tpm_image, os.path.join(align_path, T1_image))
                 else:
                     print(f'only aligned T1 image is present for the subject {subject}')
-                    naf.do_spm_new_segment(tpm_image, os.path.join(raw_path, T1_image))
+                    naf.do_spm_new_segment(tpm_image, os.path.join(align_path, T1_image))
         else:
             print(f'{align_path} is empty moving on to next subject') 
     else:

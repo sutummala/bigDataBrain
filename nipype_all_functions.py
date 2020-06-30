@@ -390,6 +390,7 @@ def do_spm_new_segment(tpm_file, infile):
     gray matter, white matter and CSF probability maps in native space.
 
     '''
+    print(f'doing gray, white and CSF segmentation of {infile}\n')
     seg = spm.NewSegment()
     seg.inputs.affine_regularization = 'mni'
     seg.inputs.sampling_distance = 2
@@ -417,6 +418,7 @@ def do_spm_new_segment_multi_channel(tpm_file, *infiles):
     gray matter, white matter and CSF probability maps in native space.
 
     '''
+    print(f'doing gray, white and CSF segmentation of {infiles[0]}, along with using {infiles[1]}\n')
     seg = spm.MultiChannelNewSegment()
     seg.inputs.affine_regularization = 'mni'
     seg.inputs.sampling_distance = 2

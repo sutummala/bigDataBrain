@@ -9,10 +9,10 @@ import plot_slices as ps
 data_path = '/usr/users/tummala/HCP-YA-Re'
 
 merge_json = False
-save_or_show_image = True
+save_or_show_image = False
 all_counter = 0
 success_counter = 0
-epsilon = 0.009
+epsilon = 0.011
 subjects_counter = 0
 
 subjects = sorted(os.listdir(data_path))
