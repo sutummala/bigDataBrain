@@ -33,7 +33,7 @@ def find_largest_connected_component(contours):
 # use_all_contours = True # if True it uses all contours, otherwise largest connedted component will be plotted
 # outline_color = (200, 100, 20) # outline color   
 
-def plot_image_in_slices(required_folder, fig_path, file, no_of_slices, show_plot, plot_binary_mask, plot_outline, mask_alpha, outline_alpha, outline_thickness, use_all_contours, outline_color):
+def plot_image_in_slices(required_folder, fig_path, file, no_of_slices, show_plot, plot_binary_mask, plot_outline, mask_alpha, outline_alpha, outline_thickness, use_all_contours, outline_color, pause_time):
     '''
     Parameters
     ----------
@@ -67,13 +67,14 @@ def plot_image_in_slices(required_folder, fig_path, file, no_of_slices, show_plo
     a png image of file with number of slices plotted as requested
 
     '''
+    
     refpath = "/usr/users/nmri/tools/fsl/6.0.3/data/standard" # FSL template
     refbrain_path = refpath+'/MNI152_T1_1mm_brain_mask.nii.gz' # brain mask MNI 
     
     if show_plot:
-        print(f'displaying for {file}\n')
+        print(f'displaying {file}\n')
     else:
-        print(f'saving figure for {file} in .png format to {fig_path}')
+        print(f'saving {file} in .png format in {fig_path}')
         
     image = nib.load(required_folder+'/'+file) # actual image
     image_data = image.get_fdata()
@@ -82,7 +83,7 @@ def plot_image_in_slices(required_folder, fig_path, file, no_of_slices, show_plo
     if file.find('alignedToT1') == -1:            
         ref_image = nib.load(refbrain_path) # reference image (MNI brain mask)
     else:
-        for t1_brain_mask in os.lisdir(required_folder):
+        for t1_brain_mask in os.listdir(required_folder):
             if t1_brain_mask.find('nu_corr.brain.mask') != -1 and 'hrT1' in t1_brain_mask:
                 refbrain_path = required_folder+'/'+t1_brain_mask
                 ref_image = nib.load(refbrain_path) # reference image is corresponding T1 brain mask
@@ -141,7 +142,7 @@ def plot_image_in_slices(required_folder, fig_path, file, no_of_slices, show_plo
     
     if show_plot:
         plt.show(block = False)
-        plt.pause(10)
+        plt.pause(pause_time)
         plt.close()
     else:
         save_fig = file[:-4]+'.png'

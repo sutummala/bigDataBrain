@@ -402,6 +402,7 @@ def do_spm_new_segment(tpm_file, infile):
     tissue4 = ((tpm_file, 4), 2, (False,False), (False, False))
     tissue5 = ((tpm_file, 5), 2, (False,False), (False, False))
     seg.inputs.tissues = [tissue1, tissue2, tissue3, tissue4, tissue5]
+    seg.inputs.use_mcr = True
     seg.run()
     
 def do_spm_new_segment_multi_channel(tpm_file, *infiles):
@@ -423,7 +424,7 @@ def do_spm_new_segment_multi_channel(tpm_file, *infiles):
     seg.inputs.affine_regularization = 'mni'
     seg.inputs.sampling_distance = 2
     channel1= (infiles[0],(0.0001, 60, (False, False))) # T1-weighted image
-    channel2= (infiles[1],(0.0001, 60, (False, False))) # T2/FLAIR and it should be co-registered to the corresponding T1 before segmentation
+    channel2= (infiles[1],(0.0001, 60, (False, False))) # T2/FLAIR and it should be co-registered to the corresponding T1 before running segmentation
     seg.inputs.channels = [channel1, channel2]
     tissue1 = ((tpm_file, 1), 2, (True,False), (False, False))
     tissue2 = ((tpm_file, 2), 2, (True,False), (False, False))
@@ -431,5 +432,6 @@ def do_spm_new_segment_multi_channel(tpm_file, *infiles):
     tissue4 = ((tpm_file, 4), 2, (False,False), (False, False))
     tissue5 = ((tpm_file, 5), 2, (False,False), (False, False))
     seg.inputs.tissues = [tissue1, tissue2, tissue3, tissue4, tissue5]
+    seg.inputs.use_mcr = True
     seg.run() 
     

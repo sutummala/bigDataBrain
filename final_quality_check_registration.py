@@ -6,7 +6,7 @@ import json
 import nipype_all_functions as naf
 import plot_slices as ps
 
-data_path = '/usr/users/tummala/HCP-YA-Re'
+data_path = '/usr/users/tummala/BigData'
 
 merge_json = False
 save_or_show_image = False
@@ -65,7 +65,7 @@ for subject in subjects:
                 # save the required image along with its brain outline in png format
                 if save_or_show_image and manual_check:
                     ps.plot_image_in_slices(required_path, fig_path, data['file_name'], no_of_slices = 3, show_plot = True, plot_binary_mask = True, plot_outline = True, mask_alpha = 0.1,
-                                        outline_alpha = 0.6, outline_thickness = 2, use_all_contours = True, outline_color = (200, 100, 20))
+                                        outline_alpha = 0.6, outline_thickness = 2, use_all_contours = True, outline_color = (200, 100, 20), pause_time = 3)
                        
     # if merging json is requested    
     if merge_json:

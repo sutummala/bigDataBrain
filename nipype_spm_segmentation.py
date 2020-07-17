@@ -1,5 +1,6 @@
 # code created by Sudhakar on June 2020
-# multi-modal spm segmentation 
+# multi-spectral spm segmentation, i.e. segmenting given image(s) into gray matter, white matter and CSF probability maps from T1-weighted (and corresponding T2 or FLAIR if available)
+# if T2/FLAIR is available, that will be co-registered to the corresponding T1 before running SPM
 
 import os
 import nipype_all_functions as naf
@@ -27,7 +28,7 @@ def get_file_name_and_extension(infile):
     else:
         return main_1, ext_1
 
-def do_spm_segmentation(data_path, subject, image_type, multi_channel):
+def do_spm_segmentation(data_path, subject, image_type, multi_modal):
     '''
     Parameters
     ----------
@@ -36,11 +37,11 @@ def do_spm_segmentation(data_path, subject, image_type, multi_channel):
     subject : str
         subject ID.
     image_type : str
-        it is either 'anat' or 'align.
+        it is either 'anat' or 'align'.
 
     Returns
     -------
-    gray matter, white matter and CSF probability maps in native space fot the subject 
+    segmented gray matter, white matter and CSF probability maps in native space for the subject 
 
     '''
     raw_path = os.path.join(data_path, subject, 'anat') # raw images
@@ -52,7 +53,7 @@ def do_spm_segmentation(data_path, subject, image_type, multi_channel):
     FLAIR_flag =  False
     
     if image_type == 'anat':
-        if os.path.getsize(raw_path) > 0:
+        if os.path.getsize(raw_path) > 0: # checking if there are files inside
             raw_images = os.listdir(raw_path)
             for raw_image in raw_images:
                 if raw_image.endswith('reoriented.nii.gz') and 'hrT1' in raw_image:
@@ -73,7 +74,7 @@ def do_spm_segmentation(data_path, subject, image_type, multi_channel):
                             main_name, ext = get_file_name_and_extension(T2_image)
                             outfile = main_name+'.alignedToT1'+ext
                             naf.doApplyXFM(os.path.join(raw_path, T2_image), os.path.join(mats_path, mat_file), os.path.join(raw_path, T1_image), os.path.join(raw_path, outfile), 'spline', 'T2')
-                            if multi_channel:
+                            if multi_modal:
                                 naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(raw_path, T1_image), os.path.join(raw_path, T2_image))
                             else:
                                 naf.do_spm_new_segment(tpm_image, os.path.join(raw_path, T1_image))
@@ -84,7 +85,7 @@ def do_spm_segmentation(data_path, subject, image_type, multi_channel):
                             main_name, ext = get_file_name_and_extension(FLAIR_image)
                             outfile = main_name+'.alignedToT1'+ext
                             naf.doApplyXFM(os.path.join(raw_path, FLAIR_image), os.path.join(mats_path, mat_file), os.path.join(raw_path, T1_image), os.path.join(raw_path, outfile), 'spline', 'FLAIR')
-                            if multi_channel:
+                            if multi_modal: # multi-spectral segmentation
                                 naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(raw_path, T1_image), os.path.join(raw_path, FLAIR_image))
                             else:
                                 naf.do_spm_new_segment(tpm_image, os.path.join(raw_path, T1_image))
@@ -95,7 +96,7 @@ def do_spm_segmentation(data_path, subject, image_type, multi_channel):
                             main_name, ext = get_file_name_and_extension(FLAIR_image)
                             outfile = main_name+'.alignedToT1'+ext
                             naf.doApplyXFM(os.path.join(raw_path, FLAIR_image), os.path.join(mats_path, mat_file), os.path.join(raw_path, T1_image), os.path.join(raw_path, outfile), 'spline', 'FLAIR')
-                            if multi_channel:
+                            if multi_modal: # multi-spectral segmentation
                                 naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(raw_path, T1_image), os.path.join(raw_path, FLAIR_image))
                             else:
                                 naf.do_spm_new_segment(tpm_image, os.path.join(raw_path, T1_image))
@@ -105,7 +106,7 @@ def do_spm_segmentation(data_path, subject, image_type, multi_channel):
         else:
             print(f'{raw_path} is empty moving on to next subject')      
     elif image_type == 'align':
-        if os.path.getsize(align_path) > 0:
+        if os.path.getsize(align_path) > 0: # checking if there are files inside
             align_images = os.listdir(align_path)
             for align_image in align_images:
                 if align_image.endswith('reoriented.align.nii.gz') and 'hrT1' in align_image:
@@ -121,19 +122,19 @@ def do_spm_segmentation(data_path, subject, image_type, multi_channel):
                 print(f'T1-image is present for the subject {subject}')
                 if T2_flag:
                     print(f'both T1 and T2 aligned images are present for {subject}')
-                    if multi_channel:
+                    if multi_modal:
                         naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(align_path, T1_image), os.path.join(align_path, T2_image))
                     else:
                         naf.do_spm_new_segment(tpm_image, os.path.join(align_path, T1_image))
                 elif FLAIR_flag:
                     print(f'both T1 and FLAIR aligned images are present for {subject}')
-                    if multi_channel:
+                    if multi_modal: # multi-spectral segmentation
                         naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(align_path, T1_image), os.path.join(align_path, FLAIR_image))
                     else:
                         naf.do_spm_new_segment(tpm_image, os.path.join(align_path, T1_image))
                 elif T2_flag and FLAIR_flag:
                     print(f'all T1, T2 and FLAIR raw image are present for {subject}, using FLAIR along with T1')
-                    if multi_channel:
+                    if multi_modal: # multi-spectral segmentation
                         naf.do_spm_new_segment_multi_channel(tpm_image, os.path.join(align_path, T1_image), os.path.join(align_path, FLAIR_image))
                     else:
                         naf.do_spm_new_segment(tpm_image, os.path.join(align_path, T1_image))

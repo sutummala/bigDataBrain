@@ -6,15 +6,12 @@ import os
 import numpy as np
 import registration_cost_function as rcf
 
-cluster = True
-
-if cluster:
+if 1:
     data_dir = sys.argv[1] # Path to the subjects data directory
     subject = sys.argv[2] # Subject ID
 else:
-    data_dir = '/usr/users/tummala/bigdata' # Path to the subjects data directory
+    data_dir = '/usr/users/tummala/bigdata1' # Path to the subjects data directory
     subject = os.listdir(data_dir)[1] # Subject ID
-
 
 refpath = "/usr/users/nmri/tools/fsl/6.0.3/data/standard" # FSL template
   
@@ -38,7 +35,6 @@ def compute_cost_vectors(data_dir, subject, reg_type, cost_func, tag):
     returns global and local cost vectors 
     '''
 
-    print(f'doing for {reg_type} for cost {cost_func}\n')
     if reg_type == 'align':
         required_folder = data_dir+'/'+subject+'/align'
         checking_tag = 'reoriented.align.nii'
@@ -53,9 +49,9 @@ def compute_cost_vectors(data_dir, subject, reg_type, cost_func, tag):
     for movingfile in movingfiles:
         if movingfile.endswith(checking_tag) and tag in movingfile:
             print(f'{subject}, checking file: {movingfile}')
-            global_cost, local_cost = rcf.do_check_registration(refpath, required_folder+'/'+movingfile, cost_func, 5, True, True, True)
+            global_cost, local_cost = rcf.do_check_registration(refpath, required_folder+'/'+movingfile, cost_func, voi_size = 3, step_size = 3, masking = True, measure_global = True, measure_local = True)
             cost_file = movingfile[0:-4]+f'.{cost_func}.data'       
-            np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.3f')
+            np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.6f')
             
 def compute_coreg_cost_vectors(data_dir, subject, cost_func, tag):
     '''
@@ -95,12 +91,12 @@ def compute_coreg_cost_vectors(data_dir, subject, cost_func, tag):
             moving_file = True
     if ref_file and moving_file:
         print(f'{subject}, checking files: {movingfile_ref, movingfile_moving}')
-        global_cost, local_cost = rcf.do_check_coregistration(required_folder+'/'+movingfile_ref, required_folder+'/'+movingfile_moving, cost_func, 5, True, True, True)
+        global_cost, local_cost = rcf.do_check_coregistration(required_folder+'/'+movingfile_ref, required_folder+'/'+movingfile_moving, cost_func, voi_size = 3, step_size = 3, masking = True, measure_global = True, measure_local = True)
         cost_file = movingfile_moving[0:-4]+f'.{cost_func}.data'       
-        np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.3f')
+        np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.6f')
 
 image_types = ['hrT1', 'hrT2', 'hrFLAIR']
-costs = ['ncc', 'nmi']
+costs = ['ncc', 'nmi', 'cor']
 reg_types = ['align', 'affine']
 
 for image_type in image_types:
