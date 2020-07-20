@@ -10,6 +10,7 @@ from sklearn import metrics
 subpath1 = '/usr/users/tummala/bigdata1'
 subpath2 = '/usr/users/tummala/HCP-YA'
 
+voi_size = 7
 # subpath3 = '/usr/users/tummala/bigdata'
 # subpath4 = '/usr/users/tummala/HCP-YA-test'
 
@@ -48,7 +49,7 @@ def get_coreg_cost_vectors(cost_func, subpath, tag):
     global_cost_vector = []
     local_cost_vector = []
     for index, subject in enumerate(subjects, start=1):
-        cost_folder = subpath+'/'+subject+'/cost'
+        cost_folder = subpath+'/'+subject+'/cost'+str(voi_size)
         data_files = os.listdir(cost_folder)
         for data_file in data_files:
             if 'alignedToT1' in data_file and (tag in data_file and cost_func in data_file):
@@ -79,7 +80,7 @@ def get_cost_vectors(cost_func, reg_type, subpath, tag):
     global_cost_vector = []
     local_cost_vector = []
     for index, subject in enumerate(subjects, start=1):
-        cost_folder = subpath+'/'+subject+'/cost'
+        cost_folder = subpath+'/'+subject+'/cost'+str(voi_size)
         #print('{}-{}, {}-{}'.format(index, subject, reg_type, cost_func))
         data_files = os.listdir(cost_folder)
         for data_file in data_files:
@@ -111,9 +112,9 @@ def get_coreg_test_cost_vectors(cost_func, subpath, tag):
     local_cost_vector = []
     for index, subject in enumerate(subjects, start=1):
         if tag == 'hrT2':
-            cost_folder = subpath+'/'+subject+'/test_cost_T2_T1'
+            cost_folder = subpath+'/'+subject+'/test_cost_T2_T1'+str(voi_size)
         elif tag == 'hrFLAIR':
-            cost_folder = subpath+'/'+subject+'/test_cost_FLAIR_T1'
+            cost_folder = subpath+'/'+subject+'/test_cost_FLAIR_T1'+str(voi_size)
 
         if os.path.exists(cost_folder) and os.listdir(cost_folder):
             data_files = os.listdir(cost_folder)
@@ -149,19 +150,19 @@ def get_test_cost_vectors(cost_func, reg_type, subpath, tag):
     for index, subject in enumerate(subjects, start=1):
         if tag == 'hrT1':
             if reg_type == 'align':
-                cost_folder = subpath+'/'+subject+'/test_cost_T1_align'
+                cost_folder = subpath+'/'+subject+'/test_cost_T1_align'+str(voi_size)
             elif reg_type == 'mni':
-                cost_folder = subpath+'/'+subject+'/test_cost_T1_mni'
+                cost_folder = subpath+'/'+subject+'/test_cost_T1_mni'+str(voi_size)
         elif tag == 'hrT2':
             if reg_type == 'align':
-                cost_folder = subpath+'/'+subject+'/test_cost_T2_align'
+                cost_folder = subpath+'/'+subject+'/test_cost_T2_align'+str(voi_size)
             elif reg_type == 'mni':
-                cost_folder = subpath+'/'+subject+'/test_cost_T2_mni'
+                cost_folder = subpath+'/'+subject+'/test_cost_T2_mni'+str(voi_size)
         elif tag == 'hrFLAIR':
             if reg_type == 'align':
-                cost_folder = subpath+'/'+subject+'/test_cost_FLAIR_align'
+                cost_folder = subpath+'/'+subject+'/test_cost_FLAIR_align'+str(voi_size)
             elif reg_type == 'mni':
-                cost_folder = subpath+'/'+subject+'/test_cost_FLAIR_mni'
+                cost_folder = subpath+'/'+subject+'/test_cost_FLAIR_mni'+str(voi_size)
         
         if os.path.exists(cost_folder) and os.listdir(cost_folder):
             data_files = os.listdir(cost_folder)

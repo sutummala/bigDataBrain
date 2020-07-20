@@ -15,7 +15,7 @@ else:
 
 refpath = "/usr/users/nmri/tools/fsl/6.0.3/data/standard" # FSL template
   
-def compute_cost_vectors(data_dir, subject, reg_type, cost_func, tag):
+def compute_cost_vectors(data_dir, subject, reg_type, cost_func, tag, voi_size, step_size):
     '''
     Parameters
     ----------
@@ -29,6 +29,10 @@ def compute_cost_vectors(data_dir, subject, reg_type, cost_func, tag):
         cost function, ncc: normalized correlation coefficient, nmi: normalized mutual information.
     tag : str
         image tag.
+    voi_size : int
+        size of the volume of interest, e.g. 3 or 5 or 7 etc.
+    step_size : int
+        size of the step size in sliding the VOI over the image, ideally it may be same as voi_size, but that is not the strict requirement.
 
     Returns
     -------
@@ -42,18 +46,18 @@ def compute_cost_vectors(data_dir, subject, reg_type, cost_func, tag):
         required_folder = data_dir+'/'+subject+'/mni'
         checking_tag = 'reoriented.mni.nii'
         
-    cost_folder = data_dir+'/'+subject+'/cost'
+    cost_folder = data_dir+'/'+subject+'/cost'+str(voi_size)
     if not os.path.exists(cost_folder):
         os.makedirs(cost_folder)
     movingfiles = os.listdir(required_folder)
     for movingfile in movingfiles:
         if movingfile.endswith(checking_tag) and tag in movingfile:
             print(f'{subject}, checking file: {movingfile}')
-            global_cost, local_cost = rcf.do_check_registration(refpath, required_folder+'/'+movingfile, cost_func, voi_size = 3, step_size = 3, masking = True, measure_global = True, measure_local = True)
+            global_cost, local_cost = rcf.do_check_registration(refpath, required_folder+'/'+movingfile, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)
             cost_file = movingfile[0:-4]+f'.{cost_func}.data'       
             np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.6f')
             
-def compute_coreg_cost_vectors(data_dir, subject, cost_func, tag):
+def compute_coreg_cost_vectors(data_dir, subject, cost_func, tag, voi_size, step_size):
     '''
     Parameters
     ----------
@@ -65,6 +69,10 @@ def compute_coreg_cost_vectors(data_dir, subject, cost_func, tag):
         cost function, ncc: normalized correlation coefficient, nmi: normalized mutual information.
     tag : str
         image tag.
+    voi_size : int
+        size of the volume of interest, e.g. 3 or 5 or 7 etc.
+    step_size : int
+        size of the step size in sliding the VOI over the image, ideally it may be same as voi_size, but that is not the strict requirement.
 
     Returns
     -------
@@ -78,7 +86,7 @@ def compute_coreg_cost_vectors(data_dir, subject, cost_func, tag):
     ref_file = False
     moving_file = False
     
-    cost_folder = data_dir+'/'+subject+'/cost'
+    cost_folder = data_dir+'/'+subject+'/cost'+str(voi_size)
     if not os.path.exists(cost_folder):
         os.makedirs(cost_folder)
     movingfiles = os.listdir(required_folder)
@@ -91,7 +99,7 @@ def compute_coreg_cost_vectors(data_dir, subject, cost_func, tag):
             moving_file = True
     if ref_file and moving_file:
         print(f'{subject}, checking files: {movingfile_ref, movingfile_moving}')
-        global_cost, local_cost = rcf.do_check_coregistration(required_folder+'/'+movingfile_ref, required_folder+'/'+movingfile_moving, cost_func, voi_size = 3, step_size = 3, masking = True, measure_global = True, measure_local = True)
+        global_cost, local_cost = rcf.do_check_coregistration(required_folder+'/'+movingfile_ref, required_folder+'/'+movingfile_moving, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)
         cost_file = movingfile_moving[0:-4]+f'.{cost_func}.data'       
         np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.6f')
 
@@ -99,13 +107,17 @@ image_types = ['hrT1', 'hrT2', 'hrFLAIR']
 costs = ['ncc', 'nmi', 'cor']
 reg_types = ['align', 'affine']
 
+# VOI and step size for local cost computation
+voi_size = 7
+step_size = 7
+
 for image_type in image_types:
         for cost in costs:
             # computing cost for co-registration of T2/FLAIR brain to T1 brain
-            compute_coreg_cost_vectors(data_dir, subject, cost, image_type)
+            compute_coreg_cost_vectors(data_dir, subject, cost, image_type, voi_size, step_size)
             for reg_type in reg_types:
             # dealing with hrT1, hrT2 and hrFLAIR for bigdata and HCPYA, rigid and affine registration
-                compute_cost_vectors(data_dir, subject, reg_type, cost, image_type)
+                compute_cost_vectors(data_dir, subject, reg_type, cost, image_type, voi_size, step_size)
             
 print('done computation\n')
 

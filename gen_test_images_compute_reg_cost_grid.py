@@ -40,7 +40,7 @@ def generate_new_param(scales, trans, rots, t):
     
     return scales_new, trans_new, rots_new
 
-def generate_coreg_test_images(img_type, no_of_test_images):
+def generate_coreg_test_images(img_type, voi_size, step_size, no_of_test_images):
     ''' generating test images for co-registration of T2/FLAIR to T1'''
     
     mat_path = datapath+'/'+subject+'/mat'
@@ -54,12 +54,12 @@ def generate_coreg_test_images(img_type, no_of_test_images):
     
     if img_type == 'hrT2':
         mat_tag = 't2-t1.mat'
-        test_mat_path = datapath+'/'+subject+'/test_mat_T2_T1'
-        test_imgs_path = datapath+'/'+subject+'/test_imgs_T2_T1'
+        test_mat_path = datapath+'/'+subject+'/test_mat_T2_T1'+str(voi_size)
+        test_imgs_path = datapath+'/'+subject+'/test_imgs_T2_T1'+str(voi_size)
     elif img_type == 'hrFLAIR':
         mat_tag = 'flair-t1.mat'
-        test_mat_path = datapath+'/'+subject+'/test_mat_FLAIR_T1'
-        test_imgs_path = datapath+'/'+subject+'/test_imgs_FLAIR_T1'
+        test_mat_path = datapath+'/'+subject+'/test_mat_FLAIR_T1'+str(voi_size)
+        test_imgs_path = datapath+'/'+subject+'/test_imgs_FLAIR_T1'+str(voi_size)
            
     for test_matfile in sorted(os.listdir(mat_path)):
         if test_matfile.endswith(mat_tag):
@@ -82,7 +82,7 @@ def generate_coreg_test_images(img_type, no_of_test_images):
                 np.savetxt(test_mat_path+'/'+testfile, mat_modified, fmt = '%10.19f')
                 naf.doApplyXFM(raw_path+'/'+moving_file, test_mat_path+'/'+testfile, raw_path+'/'+ref_file, test_imgs_path+'/'+outfile, 'spline', img_type)
 
-def compute_coreg_test_cost_vectors(cost_func, image_type):
+def compute_coreg_test_cost_vectors(cost_func, image_type, voi_size, step_size):
     ''' computes cost vector for given combination of cost and registration type'''
     
     print(f'doing for cost {cost_func}\n')
@@ -93,11 +93,11 @@ def compute_coreg_test_cost_vectors(cost_func, image_type):
             ref_file = raw_file
     
     if image_type == 'hrT2':
-        required_folder = datapath+'/'+subject+'/test_imgs_T2_T1'
-        cost_folder = datapath+'/'+subject+'/test_cost_T2_T1'
+        required_folder = datapath+'/'+subject+'/test_imgs_T2_T1'+str(voi_size)
+        cost_folder = datapath+'/'+subject+'/test_cost_T2_T1'+str(voi_size)
     elif image_type == 'hrFLAIR':
-        required_folder = datapath+'/'+subject+'/test_imgs_FLAIR_T1'
-        cost_folder = datapath+'/'+subject+'/test_cost_FLAIR_T1'
+        required_folder = datapath+'/'+subject+'/test_imgs_FLAIR_T1'+str(voi_size)
+        cost_folder = datapath+'/'+subject+'/test_cost_FLAIR_T1'+str(voi_size)
     
     if os.path.exists(required_folder) and os.listdir(required_folder):
         if not os.path.exists(cost_folder):
@@ -105,11 +105,11 @@ def compute_coreg_test_cost_vectors(cost_func, image_type):
         movingfiles = os.listdir(required_folder)
         for movingfile in movingfiles:
             print(f'{subject}, checking file: {movingfile}')
-            global_cost, local_cost = rcf.do_check_coregistration(raw_path+'/'+ref_file, required_folder+'/'+movingfile, cost_func, voi_size = 3, step_size = 3, masking = True, measure_global = True, measure_local = True)
+            global_cost, local_cost = rcf.do_check_coregistration(raw_path+'/'+ref_file, required_folder+'/'+movingfile, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)
             cost_file = movingfile[0:-4]+f'.{cost_func}.data'       
             np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.6f')
 
-def generate_test_images(img_type, reg_type, no_of_test_images):
+def generate_test_images(img_type, reg_type, voi_size, step_size, no_of_test_images):
     ''' generating test images for both align and affine for all kinds of structural scans'''
     
     mat_path = datapath+'/'+subject+'/mat'
@@ -122,29 +122,29 @@ def generate_test_images(img_type, reg_type, no_of_test_images):
     if reg_type == 'align':
         if img_type == 'hrT1':
             mat_tag = 't1-align.mat'
-            test_mat_path = datapath+'/'+subject+'/test_mat_T1_align'
-            test_imgs_path = datapath+'/'+subject+'/test_imgs_T1_align'
+            test_mat_path = datapath+'/'+subject+'/test_mat_T1_align'+str(voi_size)
+            test_imgs_path = datapath+'/'+subject+'/test_imgs_T1_align'+str(voi_size)
         elif img_type == 'hrT2':
             mat_tag = 't2-align.mat'
-            test_mat_path = datapath+'/'+subject+'/test_mat_T2_align'
-            test_imgs_path = datapath+'/'+subject+'/test_imgs_T2_align'
+            test_mat_path = datapath+'/'+subject+'/test_mat_T2_align'+str(voi_size)
+            test_imgs_path = datapath+'/'+subject+'/test_imgs_T2_align'+str(voi_size)
         elif img_type == 'hrFLAIR':
             mat_tag = 'flair-align.mat'
-            test_mat_path = datapath+'/'+subject+'/test_mat_FLAIR_align'
-            test_imgs_path = datapath+'/'+subject+'/test_imgs_FLAIR_align'
+            test_mat_path = datapath+'/'+subject+'/test_mat_FLAIR_align'+str(voi_size)
+            test_imgs_path = datapath+'/'+subject+'/test_imgs_FLAIR_align'+str(voi_size)
     elif reg_type == 'mni':
         if img_type == 'hrT1':
             mat_tag = 't1-mni.mat'
-            test_mat_path = datapath+'/'+subject+'/test_mat_T1_mni'
-            test_imgs_path = datapath+'/'+subject+'/test_imgs_T1_mni'
+            test_mat_path = datapath+'/'+subject+'/test_mat_T1_mni'+str(voi_size)
+            test_imgs_path = datapath+'/'+subject+'/test_imgs_T1_mni'+str(voi_size)
         elif img_type == 'hrT2':
             mat_tag = 't2-mni.mat'
-            test_mat_path = datapath+'/'+subject+'/test_mat_T2_mni'
-            test_imgs_path = datapath+'/'+subject+'/test_imgs_T2_mni'
+            test_mat_path = datapath+'/'+subject+'/test_mat_T2_mni'+str(voi_size)
+            test_imgs_path = datapath+'/'+subject+'/test_imgs_T2_mni'+str(voi_size)
         elif img_type == 'hrFLAIR':
             mat_tag = 'flair-mni.mat'
-            test_mat_path = datapath+'/'+subject+'/test_mat_FLAIR_mni'
-            test_imgs_path = datapath+'/'+subject+'/test_imgs_FLAIR_mni'
+            test_mat_path = datapath+'/'+subject+'/test_mat_FLAIR_mni'+str(voi_size)
+            test_imgs_path = datapath+'/'+subject+'/test_imgs_FLAIR_mni'+str(voi_size)
            
     for test_matfile in sorted(os.listdir(mat_path)):
         if test_matfile.endswith(mat_tag):
@@ -167,30 +167,30 @@ def generate_test_images(img_type, reg_type, no_of_test_images):
                 np.savetxt(test_mat_path+'/'+testfile, mat_modified, fmt = '%10.19f')
                 naf.doApplyXFM(raw_path+'/'+infile, test_mat_path+'/'+testfile, ref, test_imgs_path+'/'+outfile, 'spline', img_type)
             
-def compute_test_cost_vectors(reg_type, cost_func, image_type):
+def compute_test_cost_vectors(reg_type, cost_func, image_type, voi_size, step_size):
     ''' computes cost vector for given combination of cost and registration type'''
     
     print(f'doing for {reg_type} and cost {cost_func}\n')
     if reg_type == 'align':
         if image_type == 'hrT1':
-            required_folder = datapath+'/'+subject+'/test_imgs_T1_align'
-            cost_folder = datapath+'/'+subject+'/test_cost_T1_align'
+            required_folder = datapath+'/'+subject+'/test_imgs_T1_align'+str(voi_size)
+            cost_folder = datapath+'/'+subject+'/test_cost_T1_align'+str(voi_size)
         elif image_type == 'hrT2':
-            required_folder = datapath+'/'+subject+'/test_imgs_T2_align'
-            cost_folder = datapath+'/'+subject+'/test_cost_T2_align'
+            required_folder = datapath+'/'+subject+'/test_imgs_T2_align'+str(voi_size)
+            cost_folder = datapath+'/'+subject+'/test_cost_T2_align'+str(voi_size)
         elif image_type == 'hrFLAIR':
-            required_folder = datapath+'/'+subject+'/test_imgs_FLAIR_align'
-            cost_folder = datapath+'/'+subject+'/test_cost_FLAIR_align'
+            required_folder = datapath+'/'+subject+'/test_imgs_FLAIR_align'+str(voi_size)
+            cost_folder = datapath+'/'+subject+'/test_cost_FLAIR_align'+str(voi_size)
     elif reg_type == 'mni':
         if image_type == 'hrT1':
-            required_folder = datapath+'/'+subject+'/test_imgs_T1_mni'
-            cost_folder = datapath+'/'+subject+'/test_cost_T1_mni'
+            required_folder = datapath+'/'+subject+'/test_imgs_T1_mni'+str(voi_size)
+            cost_folder = datapath+'/'+subject+'/test_cost_T1_mni'+str(voi_size)
         elif image_type == 'hrT2':
-            required_folder = datapath+'/'+subject+'/test_imgs_T2_mni'
-            cost_folder = datapath+'/'+subject+'/test_cost_T2_mni'
+            required_folder = datapath+'/'+subject+'/test_imgs_T2_mni'+str(voi_size)
+            cost_folder = datapath+'/'+subject+'/test_cost_T2_mni'+str(voi_size)
         elif image_type == 'hrFLAIR':
-            required_folder = datapath+'/'+subject+'/test_imgs_FLAIR_mni'
-            cost_folder = datapath+'/'+subject+'/test_cost_FLAIR_mni'
+            required_folder = datapath+'/'+subject+'/test_imgs_FLAIR_mni'+str(voi_size)
+            cost_folder = datapath+'/'+subject+'/test_cost_FLAIR_mni'+str(voi_size)
     
     if os.path.exists(required_folder) and os.listdir(required_folder):
         if not os.path.exists(cost_folder):
@@ -198,7 +198,7 @@ def compute_test_cost_vectors(reg_type, cost_func, image_type):
         movingfiles = os.listdir(required_folder)
         for movingfile in movingfiles:
             print(f'{subject}, checking file: {movingfile}')
-            global_cost, local_cost = rcf.do_check_registration(refpath, required_folder+'/'+movingfile, cost_func, voi_size = 3, step_size = 3, masking = True, measure_global = True, measure_local = True)
+            global_cost, local_cost = rcf.do_check_registration(refpath, required_folder+'/'+movingfile, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)
             cost_file = movingfile[0:-4]+f'.{cost_func}.data'       
             np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.6f')
 
@@ -206,20 +206,24 @@ image_types = ['hrT1', 'hrT2', 'hrFLAIR']
 costs = ['ncc', 'nmi', 'cor']
 reg_types = ['align', 'mni']
 
+# VOI and step size for local cost computation
+voi_size = 7
+step_size = 7
+
 for image_type in image_types:
     for reg_type in reg_types:
         # generating test images for each img_type
-        generate_test_images(image_type, reg_type, no_of_test_images = 10) # generate test images for each subject
+        generate_test_images(image_type, reg_type, voi_size, step_size, no_of_test_images = 10) # generate test images for each subject
         for cost in costs:
             # computing cost for test images (T1, T2 and FLAIR)
-            compute_test_cost_vectors(reg_type, cost, image_type)
+            compute_test_cost_vectors(reg_type, cost, image_type, voi_size, step_size)
             
 for image_type in image_types[1:]:
     # genrating test images for co-reg of T2/FLAIR brain to T1 brain
-    generate_coreg_test_images(image_type, no_of_test_images = 10) # generate test images for each subject
+    generate_coreg_test_images(image_type, voi_size, step_size, no_of_test_images = 10) # generate test images for each subject
     for cost in costs:
         # computing cost for test images of T2/FLAIR brain aligned to T1 brain
-        compute_coreg_test_cost_vectors(cost, image_type)
+        compute_coreg_test_cost_vectors(cost, image_type, voi_size, step_size)
     
 print('done computation\n')
        
