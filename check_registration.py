@@ -6,11 +6,18 @@ import os
 import all_plots as ap
 import numpy as np
 from sklearn import metrics
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import accuracy_score
 
 subpath1 = '/usr/users/tummala/bigdata1'
 subpath2 = '/usr/users/tummala/HCP-YA'
 
 voi_size = 7
+step_size = ''
 # subpath3 = '/usr/users/tummala/bigdata'
 # subpath4 = '/usr/users/tummala/HCP-YA-test'
 
@@ -24,7 +31,7 @@ def remove_nan(data):
     Returns
     -------
     type: list
-        list with all nan values from the input removed.
+        all nan values from the input will be removed.
     '''
     data = np.array(data)
     return data[~np.isnan(data)]
@@ -49,7 +56,7 @@ def get_coreg_cost_vectors(cost_func, subpath, tag):
     global_cost_vector = []
     local_cost_vector = []
     for index, subject in enumerate(subjects, start=1):
-        cost_folder = subpath+'/'+subject+'/cost'+str(voi_size)
+        cost_folder = subpath+'/'+subject+'/cost'+str(voi_size)+str(step_size)
         data_files = os.listdir(cost_folder)
         for data_file in data_files:
             if 'alignedToT1' in data_file and (tag in data_file and cost_func in data_file):
@@ -80,7 +87,7 @@ def get_cost_vectors(cost_func, reg_type, subpath, tag):
     global_cost_vector = []
     local_cost_vector = []
     for index, subject in enumerate(subjects, start=1):
-        cost_folder = subpath+'/'+subject+'/cost'+str(voi_size)
+        cost_folder = subpath+'/'+subject+'/cost'+str(voi_size)+str(step_size)
         #print('{}-{}, {}-{}'.format(index, subject, reg_type, cost_func))
         data_files = os.listdir(cost_folder)
         for data_file in data_files:
@@ -112,9 +119,9 @@ def get_coreg_test_cost_vectors(cost_func, subpath, tag):
     local_cost_vector = []
     for index, subject in enumerate(subjects, start=1):
         if tag == 'hrT2':
-            cost_folder = subpath+'/'+subject+'/test_cost_T2_T1'+str(voi_size)
+            cost_folder = subpath+'/'+subject+'/test_cost_T2_T1'+str(voi_size)+str(step_size)
         elif tag == 'hrFLAIR':
-            cost_folder = subpath+'/'+subject+'/test_cost_FLAIR_T1'+str(voi_size)
+            cost_folder = subpath+'/'+subject+'/test_cost_FLAIR_T1'+str(voi_size)+str(step_size)
 
         if os.path.exists(cost_folder) and os.listdir(cost_folder):
             data_files = os.listdir(cost_folder)
@@ -150,19 +157,19 @@ def get_test_cost_vectors(cost_func, reg_type, subpath, tag):
     for index, subject in enumerate(subjects, start=1):
         if tag == 'hrT1':
             if reg_type == 'align':
-                cost_folder = subpath+'/'+subject+'/test_cost_T1_align'+str(voi_size)
+                cost_folder = subpath+'/'+subject+'/test_cost_T1_align'+str(voi_size)+str(step_size)
             elif reg_type == 'mni':
-                cost_folder = subpath+'/'+subject+'/test_cost_T1_mni'+str(voi_size)
+                cost_folder = subpath+'/'+subject+'/test_cost_T1_mni'+str(voi_size)+str(step_size)
         elif tag == 'hrT2':
             if reg_type == 'align':
-                cost_folder = subpath+'/'+subject+'/test_cost_T2_align'+str(voi_size)
+                cost_folder = subpath+'/'+subject+'/test_cost_T2_align'+str(voi_size)+str(step_size)
             elif reg_type == 'mni':
-                cost_folder = subpath+'/'+subject+'/test_cost_T2_mni'+str(voi_size)
+                cost_folder = subpath+'/'+subject+'/test_cost_T2_mni'+str(voi_size)+str(step_size)
         elif tag == 'hrFLAIR':
             if reg_type == 'align':
-                cost_folder = subpath+'/'+subject+'/test_cost_FLAIR_align'+str(voi_size)
+                cost_folder = subpath+'/'+subject+'/test_cost_FLAIR_align'+str(voi_size)+str(step_size)
             elif reg_type == 'mni':
-                cost_folder = subpath+'/'+subject+'/test_cost_FLAIR_mni'+str(voi_size)
+                cost_folder = subpath+'/'+subject+'/test_cost_FLAIR_mni'+str(voi_size)+str(step_size)
         
         if os.path.exists(cost_folder) and os.listdir(cost_folder):
             data_files = os.listdir(cost_folder)
@@ -181,8 +188,63 @@ def compute_cutoff_auc(data1, data2, *tags):
     print(f'{len(data1)}, {len(data2)}')
     fpr, tpr, thresholds = metrics.roc_curve(labels, np.concatenate([data1, data2]), pos_label = 1)
     
-    print(f'Threshold for {tags[2]}-{tags[1]}-{tags[3]}-{tags[0]} is: {thresholds[np.argmax(tpr-fpr)]}, AUC is: {metrics.auc(fpr, tpr)}\n')
+    print(f'Threshold for {tags[2]}-{tags[1]}-{tags[3]}-{tags[0]} is: {thresholds[np.argmax(tpr-fpr)]}, sensitivity (recall) is: {tpr[np.argmax(tpr-fpr)]}, specificity is: {1-fpr[np.argmax(tpr-fpr)]}, fall-out is: {fpr[np.argmax(tpr-fpr)]}, AUC is: {metrics.auc(fpr, tpr)}\n')
     
+
+def combinational_cost(data1, data2, reg_type):
+    '''
+    Parameters
+    ----------
+    data1 : arrays
+        matrix of all costs of group1.
+    data2 : arrays
+        matrix of all costs of group2.
+    reg_type : str
+        registration type, either rigid (align) or affine (affine).
+
+    Returns
+    -------
+    accuracy of the combinational cost function for identifying mis-registrations.
+
+    '''
+    print(f'doing classifier for {reg_type}')
+    
+    # transposing and creating labels for data1    
+    X_normal = np.transpose(data1)
+    x_normal_label = np.zeros(np.size(X_normal, 0))
+    
+    # transposing and creating labels for data2    
+    X_misaligned = np.transpose(data2)
+    x_misaligned_label = np.ones(np.size(X_misaligned, 0))
+    
+    # combining data1 and data2 and the corresponding labels    
+    X = np.concatenate((X_normal, X_misaligned))
+    y = np.concatenate((x_normal_label, x_misaligned_label))
+    
+    # splitting the data and labels into training and testing     
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+    
+    # scaling the costs (features) to make sure the ranges of individual features are same. It may not be necessary in this case    
+    sc = StandardScaler()
+    X_train = sc.fit_transform(X_train)
+    X_test = sc.transform(X_test)
+    
+    # doing LDA 
+    lda = LDA(solver = 'lsqr', shrinkage='auto', n_components=1)
+    X_train = lda.fit_transform(X_train, y_train)
+    X_test = lda.transform(X_test)
+        
+    classifier = RandomForestClassifier(max_depth=2, random_state=0)
+    
+    # fitting the classfier using training data, and then predicting on testing
+    lda.fit(X_train, y_train)
+    y_pred = lda.predict(X_test)
+    
+    # confusion matrix and calculating the accuracy
+    cm = confusion_matrix(y_test, y_pred)
+    print(cm)
+    print('Accuracy' + str(accuracy_score(y_test, y_pred)))    
+        
 
 if __name__ == '__main__':
     
@@ -190,16 +252,20 @@ if __name__ == '__main__':
     reg_types = ['align', 'mni']
 
     for reg_type in reg_types:
+        combine_cost_vector = []
+        combine_test_cost_vector = []
         for cost in costs:
             # getting normal values for hrT1, hrT2 and hrFLAIR for bigdata 
             global_cost_vector_bigdata_T1, local_cost_vector_bigdata_T1 = get_cost_vectors(cost, reg_type, subpath1, 'hrT1') # T1 to MNI
             global_cost_vector_bigdata_FLAIR, local_cost_vector_bigdata_FLAIR = get_cost_vectors(cost, reg_type, subpath1, 'hrFLAIR') # FLAIR to MNI
             global_cost_vector_bigdata_FLAIRtoT1, local_cost_vector_bigdata_FLAIRtoT1 = get_coreg_cost_vectors(cost, subpath1, 'hrFLAIR') # FLAIR brain to T1 brain (only align)
             
+            combine_cost_vector.append(local_cost_vector_bigdata_T1)
+            
             # HCP-YA
             global_cost_vector_hcpya_T1, local_cost_vector_hcpya_T1 = get_cost_vectors(cost, reg_type, subpath2, 'hrT1') # T1 to MNI
             global_cost_vector_hcpya_T2, local_cost_vector_hcpya_T2 = get_cost_vectors(cost, reg_type, subpath2, 'hrT2') # T2 to MNI
-            global_cost_vector_hcpya_T2toT1, local_cost_vector_hcpya_T2toT1 = get_coreg_cost_vectors(cost, subpath2, 'hrT2') # T2 to T1 (only align)
+            global_cost_vector_hcpya_T2toT1, local_cost_vector_hcpya_T2toT1 = get_coreg_cost_vectors(cost, subpath2, 'hrT2') # T2 brain to T1 brain (only align)
     
             if False:
                 # plotting normal values for T1, T2 and FLAIR
@@ -213,6 +279,9 @@ if __name__ == '__main__':
             global_test_cost_vector_bigdata_T1, local_test_cost_vector_bigdata_T1 = get_test_cost_vectors(cost, reg_type, subpath1, 'hrT1') # T1 to MNI
             global_test_cost_vector_bigdata_FLAIR, local_test_cost_vector_bigdata_FLAIR = get_test_cost_vectors(cost, reg_type, subpath1, 'hrFLAIR') # FLAIR to MNI
             global_test_cost_vector_bigdata_FLAIRtoT1, local_test_cost_vector_bigdata_FLAIRtoT1 = get_coreg_test_cost_vectors(cost, subpath1, 'hrFLAIR') # FLAIR brain to T1 brain (only align)
+            
+            combine_test_cost_vector.append(local_cost_vector_bigdata_T1)
+            
             
             # HCPYA
             global_test_cost_vector_hcpya_T1, local_test_cost_vector_hcpya_T1 = get_test_cost_vectors(cost, reg_type, subpath2, 'hrT1') # T1 to MNI
@@ -243,30 +312,36 @@ if __name__ == '__main__':
             # Computing cut-off point and AUC for normal and test
             print('doing for Big Data\n')
             
-            compute_cutoff_auc(global_cost_vector_bigdata_T1, global_test_cost_vector_bigdata_T1, cost, reg_type, 'hrT1', 'global') # T1 to MNI
+            #compute_cutoff_auc(global_cost_vector_bigdata_T1, global_test_cost_vector_bigdata_T1, cost, reg_type, 'hrT1', 'global') # T1 to MNI
             compute_cutoff_auc(local_cost_vector_bigdata_T1, local_test_cost_vector_bigdata_T1, cost, reg_type, 'hrT1', 'local') # T1 to MNI
             print('----------------------------------------------------------------------------------------------------')
             
-            compute_cutoff_auc(global_cost_vector_bigdata_FLAIR, global_test_cost_vector_bigdata_FLAIR, cost, reg_type, 'hrFLAIR', 'global') # FLAIR to MNI
+            #compute_cutoff_auc(global_cost_vector_bigdata_FLAIR, global_test_cost_vector_bigdata_FLAIR, cost, reg_type, 'hrFLAIR', 'global') # FLAIR to MNI
             compute_cutoff_auc(local_cost_vector_bigdata_FLAIR, local_test_cost_vector_bigdata_FLAIR, cost, reg_type, 'hrFLAIR', 'local') # FLAIR to MNI
             print('----------------------------------------------------------------------------------------------------')
             
             if reg_type == 'align':
-                compute_cutoff_auc(global_cost_vector_bigdata_FLAIRtoT1, global_test_cost_vector_bigdata_FLAIRtoT1, cost, 'T1', 'hrFLAIR', 'global') # FLAIR brain to T1 brain
+                #compute_cutoff_auc(global_cost_vector_bigdata_FLAIRtoT1, global_test_cost_vector_bigdata_FLAIRtoT1, cost, 'T1', 'hrFLAIR', 'global') # FLAIR brain to T1 brain
                 compute_cutoff_auc(local_cost_vector_bigdata_FLAIRtoT1, local_test_cost_vector_bigdata_FLAIRtoT1, cost, 'T1', 'hrFLAIR', 'local') # FLAIR brain to T1 brain
                 print('----------------------------------------------------------------------------------------------------')
             
             print('doing for HCP-YA\n')
             
-            compute_cutoff_auc(global_cost_vector_hcpya_T1, global_test_cost_vector_hcpya_T1, cost, reg_type, 'hrT1', 'global') # T1 to MNI
+            #compute_cutoff_auc(global_cost_vector_hcpya_T1, global_test_cost_vector_hcpya_T1, cost, reg_type, 'hrT1', 'global') # T1 to MNI
             compute_cutoff_auc(local_cost_vector_hcpya_T1, local_test_cost_vector_hcpya_T1, cost, reg_type, 'hrT1', 'local') # T1 to MNI
             print('----------------------------------------------------------------------------------------------------')
             
-            compute_cutoff_auc(global_cost_vector_hcpya_T2, global_test_cost_vector_hcpya_T2, cost, reg_type, 'hrT2', 'global') # T2 to MNI
+            #compute_cutoff_auc(global_cost_vector_hcpya_T2, global_test_cost_vector_hcpya_T2, cost, reg_type, 'hrT2', 'global') # T2 to MNI
             compute_cutoff_auc(local_cost_vector_hcpya_T2, local_test_cost_vector_hcpya_T2, cost, reg_type, 'hrT2', 'local') # T2 to MNI
             print('----------------------------------------------------------------------------------------------------')
             
             if reg_type == 'align':
-                compute_cutoff_auc(global_cost_vector_hcpya_T2toT1, global_test_cost_vector_hcpya_T2toT1, cost, 'T1', 'hrT2', 'global') # T2 brain to T1 brain
+                #compute_cutoff_auc(global_cost_vector_hcpya_T2toT1, global_test_cost_vector_hcpya_T2toT1, cost, 'T1', 'hrT2', 'global') # T2 brain to T1 brain
                 compute_cutoff_auc(local_cost_vector_hcpya_T2toT1, local_test_cost_vector_hcpya_T2toT1, cost, 'T1', 'hrT2', 'local') # T2 brain to T1 brain
+        
+        combinational_cost(combine_cost_vector, combine_test_cost_vector, reg_type)
+        
+        
+        
+        
         
