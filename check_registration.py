@@ -6,12 +6,15 @@ import os
 import all_plots as ap
 import numpy as np
 from sklearn import metrics
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QDA
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import SVC
+from sklearn.svm import SVC, NuSVC
+from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier as kNN
 import matplotlib.pyplot as plt
 
 
@@ -192,6 +195,12 @@ def compute_cutoff_auc(data1, data2, *tags):
     
     print(f'Threshold for {tags[2]}-{tags[1]}-{tags[3]}-{tags[0]} is: {thresholds[np.argmax(tpr-fpr)]}, sensitivity (recall) is: {tpr[np.argmax(tpr-fpr)]}, specificity is: {1-fpr[np.argmax(tpr-fpr)]}, fall-out is: {fpr[np.argmax(tpr-fpr)]}, AUC is: {metrics.auc(fpr, tpr)}\n')
     
+def classifier_accuracy(model, X_train, X_test, y_train, y_test):
+    'get model (classifier) accuracy based on training and testing'
+    model.fit(X_train, y_train)
+    return model.score(X_test, y_test), metrics.roc_auc_score(y_test, model.predict_proba(X_test)[:,1])
+    
+    
 
 def combinational_cost(data1, data2, reg_type, image_tag):
     '''
@@ -209,7 +218,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     accuracy of the combinational cost function for identifying mis-registrations.
 
     '''
-    print(f'plotting classifier comparison for {image_tag}-{reg_type}')
+    print(f'plotting classifier comparison for {image_tag}-{reg_type}--------------')
     
     # transposing and creating labels for data1    
     X_normal = np.transpose(data1)
@@ -222,46 +231,80 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     # combining data1 and data2 and the corresponding labels    
     X = np.concatenate((X_normal, X_misaligned))
     y = np.concatenate((x_normal_label, x_misaligned_label))
-    
-    # splitting the data and labels into training and testing     
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 0)
-    
+       
     # scaling the costs (features) to make sure the ranges of individual features are same to avoid the effect of features that have relatively large values. It may not be necessary in this case    
-    sc = StandardScaler()
-    X_train = sc.fit_transform(X_train)
-    X_test = sc.transform(X_test)
+    scale = MinMaxScaler()
+    X = scale.fit_transform(X)
     
-    # 1. Linear Discriminant Analysis classifier
-    lda = LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1)
-    # X_train = lda.fit_transform(X_train, y_train)
-    # X_test = lda.transform(X_test)
-    # fitting the lda classifier using training data and then predicting on testing 
-    lda.fit(X_train, y_train)
-    y_pred_lda = lda.predict(X_test)
+    folds = StratifiedKFold(n_splits = 3)
     
-    # 2. Random Forest classifier (it could be done in LDA transformed space if you have large number of features)  
-    rfc = RandomForestClassifier(criterion = 'entropy', max_depth = 2, random_state = 0)
-    # fitting the rfc classfier using training data, and then predicting on testing
-    rfc.fit(X_train, y_train)
-    y_pred_rfc = rfc.predict(X_test)
+    scores_lda = []
+    scores_qda = [] 
+    scores_rfc = []
+    scores_svm = []
+    scores_gnb = []
+    scores_knn = []
+    scores_lor = []
     
-    # 3. Support Vector Machine classifier
-    svm = SVC(random_state = 0)
-    svm.fit(X_train, y_train)
-    y_pred_svm = svm.predict(X_test)
+    auc_lda = []
+    auc_qda = [] 
+    auc_rfc = []
+    auc_svm = []
+    auc_gnb = []
+    auc_knn = []
+    auc_lor = []
     
-    # 4. Gaussian Naive Bayes classifier
-    gnb = GaussianNB()
-    gnb.fit(X_train, y_train)
-    y_red_gnb = gnb.predict(X_test)
+    for train_index, test_index in folds.split(X, y):
+        X_train, X_test, y_train, y_test = X[train_index], X[test_index], y[train_index], y[test_index]
     
-    lda_disp = metrics.plot_roc_curve(lda, X_test, y_test)
-    svm_disp = metrics.plot_roc_curve(svm, X_test, y_test, ax = lda_disp.ax_)
-    gnb_disp = metrics.plot_roc_curve(gnb, X_test, y_test, ax = lda_disp.ax_)
-    rfc_disp = metrics.plot_roc_curve(rfc, X_test, y_test, ax = lda_disp.ax_)
-    rfc_disp.figure_.suptitle(f"ROC curve comparison {image_tag}")
+        # 1. Linear Discriminant Analysis Classifier
+        scores_lda.append(classifier_accuracy(LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1), X_train, X_test, y_train, y_test)[0]) # Accuracy
+        auc_lda.append(classifier_accuracy(LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1), X_train, X_test, y_train, y_test)[1]) # AUC
+        
+        # 1a. Quadratic Discriminant Analysis Classifier
+        scores_qda.append(classifier_accuracy(QDA(), X_train, X_test, y_train, y_test)[0])
+        auc_qda.append(classifier_accuracy(QDA(), X_train, X_test, y_train, y_test)[1])
+        
+        # 2. Random Forest Classifier (it could be done in LDA transformed space if you have large number of features)  
+        scores_rfc.append(classifier_accuracy(RandomForestClassifier(criterion = 'entropy', n_estimators = 40, max_depth = 3), X_train, X_test, y_train, y_test)[0])
+        auc_rfc.append(classifier_accuracy(RandomForestClassifier(criterion = 'entropy', n_estimators = 40, max_depth = 3), X_train, X_test, y_train, y_test)[1])
+        
+        # 3. Support Vector Machine Classifier
+        scores_svm.append(classifier_accuracy(SVC(kernel = 'rbf', probability = True), X_train, X_test, y_train, y_test)[0])
+        auc_svm.append(classifier_accuracy(SVC(kernel = 'rbf', probability = True), X_train, X_test, y_train, y_test)[1])
+        
+        # 4. Gaussian Naive Bayes Classifier
+        scores_gnb.append(classifier_accuracy(GaussianNB(), X_train, X_test, y_train, y_test)[0])
+        auc_gnb.append(classifier_accuracy(GaussianNB(), X_train, X_test, y_train, y_test)[1])
+        
+        # 5. k-Nearest Neighbour Classifier
+        scores_knn.append(classifier_accuracy(kNN(n_neighbors = 9), X_train, X_test, y_train, y_test)[0])
+        auc_knn.append(classifier_accuracy(kNN(n_neighbors = 9), X_train, X_test, y_train, y_test)[1])
+        
+        # 6. Logistic Regression Classifier
+        scores_lor.append(classifier_accuracy(LogisticRegression(), X_train, X_test, y_train, y_test)[0])
+        auc_lor.append(classifier_accuracy(LogisticRegression(), X_train, X_test, y_train, y_test)[1])
+        
+        
+    print(f'accuracy using LDA classifier for {image_tag}-{reg_type} is: {np.average(scores_lda)}, AUC is: {np.average(auc_lda)}\n')
+    print(f'accuracy using QDA classifier for {image_tag}-{reg_type} is: {np.average(scores_qda)}, AUC is: {np.average(auc_qda)}\n')
+    print(f'accuracy using RandomForest classifier for {image_tag}-{reg_type} is: {np.average(scores_rfc)}, AUC is: {np.average(auc_rfc)}\n')
+    print(f'accuracy using SVM classifier for {image_tag}-{reg_type} is: {np.average(scores_svm)}, AUC is: {np.average(auc_svm)}\n')
+    print(f'accuracy using Naive Bayes classifier for {image_tag}-{reg_type} is: {np.average(scores_gnb)}, AUC is: {np.average(auc_gnb)}\n')
+    print(f'accuracy using kNN classifier for {image_tag}-{reg_type} is: {np.average(scores_knn)}, AUC is: {np.average(auc_knn)}\n')
+    print(f'accuracy using Logistic Regression classifier for {image_tag}-{reg_type} is: {np.average(scores_lor)}, AUC is: {np.average(auc_lor)}\n')
+    
+    # # plotting ROC curve for all above classifiers
+    # lda_disp = metrics.plot_roc_curve(lda, X_test, y_test)
+    # qda_disp = metrics.plot_roc_curve(qda, X_test, y_test, ax = lda_disp.ax_)
+    # svm_disp = metrics.plot_roc_curve(svm, X_test, y_test, ax = lda_disp.ax_)
+    # #nsvm_disp = metrics.plot_roc_curve(nsvm, X_test, y_test, ax = lda_disp.ax_)
+    # gnb_disp = metrics.plot_roc_curve(gnb, X_test, y_test, ax = lda_disp.ax_)
+    # rfc_disp = metrics.plot_roc_curve(rfc, X_test, y_test, ax = lda_disp.ax_)
+    # knn_disp = metrics.plot_roc_curve(knn, X_test, y_test, ax = lda_disp.ax_)
+    # knn_disp.figure_.suptitle(f"ROC curve comparison {image_tag}-{reg_type}")
 
-    plt.show()
+    # plt.show()
     
     # # confusion matrix and calculating the accuracy
     # cm = metrics.confusion_matrix(y_test, y_pred)
