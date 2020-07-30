@@ -10,8 +10,8 @@ from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QDA
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import SVC, NuSVC
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier as kNN
@@ -187,7 +187,7 @@ def get_test_cost_vectors(cost_func, reg_type, subpath, tag):
     return remove_nan(global_cost_vector), remove_nan(local_cost_vector)
 
 def compute_cutoff_auc(data1, data2, *tags):
-    '''computes cut-off point and AUC for given cost and reg type from data1 (normal vlaues), data2 (test values)'''
+    '''computes cut-off point and AUC for given cost and reg type from data1 (normal values), data2 (test values)'''
        
     labels = np.concatenate([np.ones(len(data1)), np.zeros(len(data2))])
     print(f'{len(data1)}, {len(data2)}')
@@ -198,24 +198,22 @@ def compute_cutoff_auc(data1, data2, *tags):
 def classifier_accuracy(model, X_train, X_test, y_train, y_test):
     'get model (classifier) accuracy based on training and testing'
     model.fit(X_train, y_train)
-    return model.score(X_test, y_test), metrics.roc_auc_score(y_test, model.predict_proba(X_test)[:,1])
-    
-    
+    return model.score(X_test, y_test), metrics.roc_auc_score(y_test, model.predict_proba(X_test)[:,1])    
 
 def combinational_cost(data1, data2, reg_type, image_tag):
     '''
     Parameters
     ----------
     data1 : arrays
-        matrix of all costs of group1.
+        matrix of all costs of group1 (normal). Each individual cost (feature) is arrnaged as a column
     data2 : arrays
-        matrix of all costs of group2.
+        matrix of all costs of group2 (abnormal). Each individual cost (feature) is arrnaged as a column
     reg_type : str
-        registration type, either rigid (align) or affine (affine).
+        registration type, either rigid (6dof) or affine (12dof).
 
     Returns
     -------
-    accuracy of the combinational cost function for identifying mis-registrations.
+    accuracy and AUC of the combinational cost function based on different supervised-learning classifiers for identifying mis-registrations.
 
     '''
     print(f'plotting classifier comparison for {image_tag}-{reg_type}--------------')
@@ -236,7 +234,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     scale = MinMaxScaler()
     X = scale.fit_transform(X)
     
-    folds = StratifiedKFold(n_splits = 3)
+    folds = StratifiedKFold(n_splits = 5)
     
     scores_lda = []
     scores_qda = [] 
@@ -245,6 +243,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     scores_gnb = []
     scores_knn = []
     scores_lor = []
+    scores_ada = []
     
     auc_lda = []
     auc_qda = [] 
@@ -253,6 +252,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     auc_gnb = []
     auc_knn = []
     auc_lor = []
+    auc_ada = []
     
     for train_index, test_index in folds.split(X, y):
         X_train, X_test, y_train, y_test = X[train_index], X[test_index], y[train_index], y[test_index]
@@ -270,8 +270,8 @@ def combinational_cost(data1, data2, reg_type, image_tag):
         auc_rfc.append(classifier_accuracy(RandomForestClassifier(criterion = 'entropy', n_estimators = 40, max_depth = 3), X_train, X_test, y_train, y_test)[1])
         
         # 3. Support Vector Machine Classifier
-        scores_svm.append(classifier_accuracy(SVC(kernel = 'rbf', probability = True), X_train, X_test, y_train, y_test)[0])
-        auc_svm.append(classifier_accuracy(SVC(kernel = 'rbf', probability = True), X_train, X_test, y_train, y_test)[1])
+        scores_svm.append(classifier_accuracy(SVC(kernel = 'rbf', gamma = 2, probability = True), X_train, X_test, y_train, y_test)[0])
+        auc_svm.append(classifier_accuracy(SVC(kernel = 'rbf', gamma = 2, probability = True), X_train, X_test, y_train, y_test)[1])
         
         # 4. Gaussian Naive Bayes Classifier
         scores_gnb.append(classifier_accuracy(GaussianNB(), X_train, X_test, y_train, y_test)[0])
@@ -285,6 +285,10 @@ def combinational_cost(data1, data2, reg_type, image_tag):
         scores_lor.append(classifier_accuracy(LogisticRegression(), X_train, X_test, y_train, y_test)[0])
         auc_lor.append(classifier_accuracy(LogisticRegression(), X_train, X_test, y_train, y_test)[1])
         
+        # 7. Ada Boost Classifier
+        scores_ada.append(classifier_accuracy(AdaBoostClassifier(n_estimators = 100), X_train, X_test, y_train, y_test)[0])
+        auc_ada.append(classifier_accuracy(AdaBoostClassifier(n_estimators = 100), X_train, X_test, y_train, y_test)[1])
+        
         
     print(f'accuracy using LDA classifier for {image_tag}-{reg_type} is: {np.average(scores_lda)}, AUC is: {np.average(auc_lda)}\n')
     print(f'accuracy using QDA classifier for {image_tag}-{reg_type} is: {np.average(scores_qda)}, AUC is: {np.average(auc_qda)}\n')
@@ -293,6 +297,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     print(f'accuracy using Naive Bayes classifier for {image_tag}-{reg_type} is: {np.average(scores_gnb)}, AUC is: {np.average(auc_gnb)}\n')
     print(f'accuracy using kNN classifier for {image_tag}-{reg_type} is: {np.average(scores_knn)}, AUC is: {np.average(auc_knn)}\n')
     print(f'accuracy using Logistic Regression classifier for {image_tag}-{reg_type} is: {np.average(scores_lor)}, AUC is: {np.average(auc_lor)}\n')
+    print(f'accuracy using Ada Boost classifier for {image_tag}-{reg_type} is: {np.average(scores_ada)}, AUC is: {np.average(auc_ada)}\n')
     
     # # plotting ROC curve for all above classifiers
     # lda_disp = metrics.plot_roc_curve(lda, X_test, y_test)
