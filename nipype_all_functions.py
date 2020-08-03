@@ -6,7 +6,7 @@ import os
 import json
 import nibabel as nib
 
-from nipype.interfaces import spm, fsl, freesurfer, ants
+from nipype.interfaces import spm, fsl, freesurfer, ants, afni
 fsl.FSLCommand.set_default_output_type('NIFTI')
 
 def doAverage(infile1, infile2, outfile): # Doing average
@@ -347,6 +347,92 @@ def doApplyXFM(infile, inmat, ref, outfile, intertype, tag): # Doing transformat
     applyxfm.inputs.interp = intertype
     applyxfm.run()
     print(tag, 'is transformed/cropped', outfile, '\n')
+
+def do_Brain_Skull_Extraction(infile, maskfile, skullfile, outfile, fraction): # Doing Brain Extraction
+    '''
+    Parameters
+    ----------
+    infile : str
+        path containing the input image.
+    maskfile : str
+        path to save the mask after brain extraction.
+    skullfile : str
+        path to save the skull after brain extraction.
+    outfile : str
+        path to save the image after brain extraction (BET tool from FSL is used).
+    fraction : float
+        fraction that controls extent of brain extraction (lower value removes more outer brain).
+    
+    Returns
+    -------
+    an image which is the brain extracted version of input image
+    a binary image which is the mask for extracted brain
+    another binary image which is the mask for the skull
+    '''
+    print('doing brain and skull extraction for', infile)
+    btr = fsl.BET()
+    btr.inputs.in_file = infile
+    btr.inputs.frac = fraction
+    btr.inputs.robust = True
+    btr.inputs.out_file = outfile
+    btr.inputs.mask = True
+    btr.inputs.skull = True
+    btr.inputs.output_type = 'NIFTI'
+    btr.run()
+    os.rename(maskfile[0:-9]+'_mask.nii', maskfile)
+    os.rename(skullfile[0:-10]+'_skull.nii', skullfile)
+    print('brain and skull extraction completed', outfile, skullfile,'\n')
+    
+def do_Tissue_Segmentation(infile):
+    '''
+    Parameters
+    ----------
+    infile : str
+        full path to the input image.
+
+    Returns
+    -------
+    white matter, gray matter, csf tissue probablity maps
+    '''
+    print(f'doing tissue segmentation for {infile}\n')
+    fastr = fsl.FAST()
+    fastr.inputs.in_files = infile
+    if infile.find('hrT1') != -1 or infile.find('hrFLAIR') != -1:
+        fastr.inputs.img_type = 1
+    elif infile.find('hrT2') != -1:
+        fastr.inputs.img_type = 2
+    elif infile.find('hrPD') != -1:
+        fastr.inputs.img_type = 3
+    fastr.inputs.output_biascorrected = False
+    fastr.inputs.output_biasfield = False
+    fastr.inputs.no_pve = True
+    #fastr.inputs.out_basename = infile
+    fastr.inputs.probability_maps = False
+    fastr.inputs.segments = False
+    fastr.inputs.output_type = 'NIFTI'
+    fastr.run()
+    print(f'tissue segmentation done for {infile}')
+
+def do_Compute_FWHM(infile, outfile):
+    '''
+    Parameters
+    ----------
+    infile : str
+        full path name to the input image
+    outfile : str
+        full path name to the output image.
+
+    Returns
+    -------
+    file containging FWHM of input.
+    '''
+    print(f'computing fwhm for {infile}\n')
+    fwhm = afni.FWHMx()
+    fwhm.inputs.in_file = infile
+    fwhm.inputs.out_file = outfile+'.out'
+    fwhm.inputs.out_subbricks = outfile
+    fwhm.run()
+    print(f'computation of fwhm is done and saved as {outfile}\n')
     
 def do_json_combine(reg_folder, subject, remove_individual_json): # combine all json files into a single json
     '''

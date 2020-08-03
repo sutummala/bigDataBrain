@@ -1,5 +1,5 @@
-# code created by Sudhakar on May 2020
-# cost functions for checking registration
+# code created by Sudhakar on May/July 2020
+# cost functions for checking registration and image quality
 
 import os
 import numpy as np
@@ -7,7 +7,6 @@ import pandas as pd
 import scipy.stats
 import nibabel as nib
 import nipype_all_functions as naf
-from nipype.interfaces import fsl
 
 def get_file_name_and_extension(infile):
     '''
@@ -151,71 +150,6 @@ def msi(in_image, direction):
         return np.average(mean_signal_intensity_y)
     elif direction == 'axial':
         return np.average(mean_signal_intensity_z)
-
-def do_Brain_Skull_Extraction(infile, maskfile, skullfile, outfile, fraction): # Doing Brain Extraction
-    '''
-    Parameters
-    ----------
-    infile : str
-        path containing the input image.
-    maskfile : str
-        path to save the mask after brain extraction.
-    skullfile : str
-        path to save the skull after brain extraction.
-    outfile : str
-        path to save the image after brain extraction (BET tool from FSL is used).
-    fraction : float
-        fraction that controls extent of brain extraction (lower value removes more outer brain).
-    
-    Returns
-    -------
-    an image which is the brain extracted version of input image
-    a binary image which is the mask for extracted brain
-    another binary image which is the mask for the skull
-    '''
-    
-    print('doing brain and skull extraction for', infile)
-    btr = fsl.BET()
-    btr.inputs.in_file = infile
-    btr.inputs.frac = fraction
-    btr.inputs.robust = True
-    btr.inputs.out_file = outfile
-    btr.inputs.mask = True
-    btr.inputs.skull = True
-    btr.inputs.output_type = 'NIFTI'
-    btr.run()
-    os.rename(maskfile[0:-9]+'_mask.nii', maskfile)
-    os.rename(skullfile[0:-10]+'_skull.nii', skullfile)
-    print('brain and skull extraction completed', outfile, skullfile,'\n')
-    
-def do_Tissue_Segmentation(infile):
-    '''
-    Parameters
-    ----------
-    infile : str
-        full path to the input image.
-
-    Returns
-    -------
-    white matter, gray matter, csf tissue probablity maps
-
-    '''
-    print(f'doing tissue segmentation for {infile}\n')
-    fastr = fsl.FAST()
-    fastr.inputs.in_files = infile
-    if infile.find('T1') != -1 or infile.find('FLAIR') != -1:
-        fastr.inputs.img_type = 1
-    elif infile.find('T2') != -1:
-        fastr.inputs.img_type = 2
-    elif infile.find('PD') != -1:
-        fastr.inputs.img_type = 3
-    fastr.inputs.output_biascorrected = False
-    fastr.inputs.output_biasfield = False
-    fastr.inputs.out_basename = 'tissue_seg'
-    fastr.inputs.probability_maps = True
-    fastr.inputs.output_type = 'NIFTI'
-    fastr.run()
-    print(f'tissue segmentation done for {infile}')
             
 # 2. signal to noise ratio (SNR) and signal-variance-to-noise-variance ratio (SVNR)
 def snr_and_svnr(*paths):
@@ -234,10 +168,7 @@ def snr_and_svnr(*paths):
     input_image_data_vector = np.sort(np.ndarray.flatten(input_image_data))
     
     threshold = 0.1 # threshold for background intensity cut-off
-    
-    # background_data_vector = input_image_data_vector[:int(threshold*len(input_image_data_vector))] # lower 10% of intensity data vector is considered as background
-    # head_data_vector = input_image_data_vector[int(threshold*len(input_image_data_vector)):int(len(input_image_data_vector))]
-    
+       
     input_image_data_vector_unique = np.unique(input_image_data_vector)
     hist, bin_edges = np.histogram(input_image_data_vector, bins = len(input_image_data_vector_unique))
     
@@ -247,7 +178,7 @@ def snr_and_svnr(*paths):
         if sum(hist[0:i]) >= threshold_number:
             break
         
-    threshold_intensity = np.round(bin_edges[i])
+    threshold_intensity = np.round(bin_edges[i]) # Intensity values less than or equal this threshold are considered as background
             
     background_data_vector = input_image_data_vector[input_image_data_vector <= threshold_intensity]
     head_data_vector = input_image_data_vector[input_image_data_vector > threshold_intensity]
@@ -255,16 +186,19 @@ def snr_and_svnr(*paths):
     print(f'average of head region is {np.average(head_data_vector)} and standard deviation of background is {np.std(background_data_vector)}\n')
     print(f'variance of head region is {np.var(head_data_vector)} and variance of background is {np.var(background_data_vector)}\n')
     
-    return np.average(head_data_vector)/np.std(background_data_vector), np.var(head_data_vector)/np.var(background_data_vector)
+    return np.average(head_data_vector)/np.std(background_data_vector), np.var(head_data_vector)/np.var(background_data_vector), np.var(background_data_vector)
 
-# 3. contrast to noise ratio (CNR) and contrast variance to noise variance ratio (CVNR)
-def cnr_and_cvnr(*paths):
+# 3. contrast to noise ratio (CNR), contrast variance to noise variance ratio (CVNR) and tissue contrast to tissue intensity variation (TCTV)
+def cnr_and_cvnr_and_tctv(*paths):
     
     infile = os.path.join(paths[0], paths[1])
+    
+    _, _, sd_background = snr_and_svnr(paths[0], paths[1])
     
     # input image
     input_image = nib.load(infile)
     input_image_data = input_image.get_fdata()
+    input_image_data_vector = np.ndarray.flatten(input_image_data)
     
     # # doing reorientation
     # infile_r, ext_r = get_file_name_and_extension(infile)
@@ -284,41 +218,68 @@ def cnr_and_cvnr(*paths):
         fraction = 0.2
     
     main, ext = get_file_name_and_extension(infile)
-    maskfile = os.path.join(paths[0], main+'.brain.mask.nii')
-    skullfile = os.path.join(paths[0], main+'.brain.skull.nii')
-    outfile = os.path.join(paths[0], main+'.brain.nii')
+    maskfile = main+'.brain.mask.nii' 
+    skullfile = main+'.brain.skull.nii'
+    outfile = main+'.brain.nii'
     
     # doing brain extraction
-    do_Brain_Skull_Extraction(infile, maskfile, skullfile, outfile, fraction)
+    naf.do_Brain_Skull_Extraction(infile, maskfile, skullfile, outfile, fraction)
     
-    # doing tissue segmentation
-    do_Tissue_Segmentation(outfile)
+    brain_image = nib.load(outfile)
+    brain_image_data = brain_image.get_fdata()
+    brain_image_data_vector = np.ndarray.flatten(brain_image_data)
     
-    # # input image
-    # input_image = nib.load(infile)
-    # input_image_data = input_image.get_fdata()
+    # doing tissue (gray matter, white matter and CSF) segmentation
+    naf.do_Tissue_Segmentation(outfile)
     
-    # # mask image (of the brain)
-    # mask_image = nib.load(maskfile)
-    # mask_image_data = mask_image.get_fdata()
+    seg_file = main+'.brain_seg.nii'
+    seg_image = nib.load(seg_file)
+    seg_image_data = seg_image.get_fdata()
+    seg_image_data_vector = np.ndarray.flatten(seg_image_data)
     
-    # # skull image 
-    # skull_image = nib.load(skullfile)
-    # skull_image_data = skull_image.get_fdata()
+    # extracting gray and white matter intensities
+    if seg_file.find('hrT1') != -1:
+        gray_matter = brain_image_data_vector[seg_image_data_vector == 2]
+        white_matter = brain_image_data_vector[seg_image_data_vector == 3]
+    elif seg_file.find('hrT2') != -1:
+        gray_matter = brain_image_data_vector[seg_image_data_vector == 1]
+        white_matter = brain_image_data_vector[seg_image_data_vector == 2]
     
-    # # skull stripped image
-    # out_image = nib.load(outfile)
-    # out_image_data = out_image.get_fdata()
-    # out_image_data_vector = np.ndarray.flatten(out_image_data)
-    # out_image_data_vector = out_image_data_vector[out_image_data_vector != 0] # considering only non-zero values 
+    pooled_std = np.sqrt(np.std(white_matter)**2 + np.std(gray_matter)**2)
+    print(f'difference of means of GM and WM is {np.abs(np.average(gray_matter)-np.average(white_matter))} & std of background is {sd_background}\n')
+    print(f'difference of stds of GM and WM is {np.abs(np.std(gray_matter)-np.std(white_matter))} & std of background is {sd_background}\n')
+    print(f'difference of stds of GM and WM is {np.abs(np.std(gray_matter)-np.std(white_matter))} & pooled std is {pooled_std}\n')
     
-    # background_data = input_image_data * (1 - mask_image_data)
-    # background_data_vector = np.ndarray.flatten(background_data)
-    # background_data_vector = background_data_vector[background_data_vector != 0] # considering only non-zero values
+    return np.abs(np.average(gray_matter)-np.average(white_matter))/sd_background, np.abs(np.std(gray_matter)-np.std(white_matter))/sd_background, np.abs(np.std(gray_matter)-np.std(white_matter))/pooled_std
     
-    # print(f'average of brain region is {np.average(out_image_data_vector)} and average of non-brain region is {np.std(background_data_vector)}\n')
+# 4. full width half maximum (FWHM) using AFNI
+def fwhm(*paths):
     
-    # return np.average(out_image_data_vector)/np.std(background_data_vector)
+    infile = os.path.join(paths[0], paths[1])
+    
+    main, ext = get_file_name_and_extension(infile)
+    
+    outfile = main+'.fwhm'
+    
+    # compute fwhm
+    naf.do_Compute_FWHM(infile, outfile)
+    
+    return np.linalg.norm(np.loadtxt(outfile))
+
+# 5. entropy (ent)
+def ent(*paths):
+    
+    infile = os.path.join(paths[0], paths[1])
+    
+    input_image = nib.load(infile)
+    input_image_data = input_image.get_fdata()
+    
+    hist_in = np.histogram(np.ndarray.flatten(input_image_data), bins = 10)[0]
+    
+    return entropy(hist_in)
+    
+    
+    
     
     
 
