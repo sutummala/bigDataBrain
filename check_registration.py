@@ -6,7 +6,7 @@ import os
 import all_plots as ap
 import numpy as np
 from sklearn import metrics
-from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
+from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QDA
@@ -216,7 +216,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     accuracy and AUC of the combinational cost function based on different supervised-learning classifiers for identifying mis-registrations.
 
     '''
-    print(f'plotting classifier comparison for {image_tag}-{reg_type}--------------')
+    print(f'classifier comparison for {image_tag}-{reg_type}--------------')
     
     # transposing and creating labels for data1    
     X_normal = np.transpose(data1)
@@ -234,6 +234,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     scale = MinMaxScaler()
     X = scale.fit_transform(X)
     
+    # K-fold cross validation
     folds = StratifiedKFold(n_splits = 5)
     
     scores_lda = []
@@ -255,6 +256,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     auc_ada = []
     
     for train_index, test_index in folds.split(X, y):
+        
         X_train, X_test, y_train, y_test = X[train_index], X[test_index], y[train_index], y[test_index]
     
         # 1. Linear Discriminant Analysis Classifier
@@ -266,8 +268,8 @@ def combinational_cost(data1, data2, reg_type, image_tag):
         auc_qda.append(classifier_accuracy(QDA(), X_train, X_test, y_train, y_test)[1])
         
         # 2. Random Forest Classifier (it could be done in LDA transformed space if you have large number of features)  
-        scores_rfc.append(classifier_accuracy(RandomForestClassifier(criterion = 'entropy', n_estimators = 40, max_depth = 3), X_train, X_test, y_train, y_test)[0])
-        auc_rfc.append(classifier_accuracy(RandomForestClassifier(criterion = 'entropy', n_estimators = 40, max_depth = 3), X_train, X_test, y_train, y_test)[1])
+        scores_rfc.append(classifier_accuracy(RandomForestClassifier(criterion = 'entropy', n_estimators = 100, max_depth = 3), X_train, X_test, y_train, y_test)[0])
+        auc_rfc.append(classifier_accuracy(RandomForestClassifier(criterion = 'entropy', n_estimators = 100, max_depth = 3), X_train, X_test, y_train, y_test)[1])
         
         # 3. Support Vector Machine Classifier
         scores_svm.append(classifier_accuracy(SVC(kernel = 'rbf', gamma = 2, probability = True), X_train, X_test, y_train, y_test)[0])
@@ -289,7 +291,8 @@ def combinational_cost(data1, data2, reg_type, image_tag):
         scores_ada.append(classifier_accuracy(AdaBoostClassifier(n_estimators = 100), X_train, X_test, y_train, y_test)[0])
         auc_ada.append(classifier_accuracy(AdaBoostClassifier(n_estimators = 100), X_train, X_test, y_train, y_test)[1])
         
-        
+    # Note: cross_val_score method could be used directly on the classifier model to avoid the above for loop
+    
     print(f'accuracy using LDA classifier for {image_tag}-{reg_type} is: {np.average(scores_lda)}, AUC is: {np.average(auc_lda)}\n')
     print(f'accuracy using QDA classifier for {image_tag}-{reg_type} is: {np.average(scores_qda)}, AUC is: {np.average(auc_qda)}\n')
     print(f'accuracy using RandomForest classifier for {image_tag}-{reg_type} is: {np.average(scores_rfc)}, AUC is: {np.average(auc_rfc)}\n')
