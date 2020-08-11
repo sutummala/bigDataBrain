@@ -4,6 +4,7 @@
 
 import os
 import sys
+import seaborn as sns
 import json
 import nibabel as nib
 import numpy as np
@@ -12,6 +13,8 @@ from sklearn.cluster import KMeans, AgglomerativeClustering
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
 from sklearn import metrics
+
+plot_kwds = {'alpha' : 0.25, 's' : 80, 'linewidths':0}
 
 def compute_image_quality_metrics(*paths):
     
@@ -49,6 +52,35 @@ def compute_image_quality_metrics(*paths):
             json.dump(save_image_quality_metrics, file, indent = 4)
             
         print(f'image quality metrics were computed for {paths[2]} and saved at {json_file}\n')
+
+# only possible to visualize when dealing with just 2 features        
+def plot_clusters(data, algorithm, args, kwds):
+    '''
+    Parameters
+    ----------
+    data : float
+        matrix of features
+    algorithm : str
+        type of clustering algorithm.
+    args : str
+        any other arguments.
+    kwds : any
+        key word arguments.
+
+    Returns
+    -------
+    a figure with clusters color coded.
+
+    '''
+    labels = algorithm(*args, **kwds).fit_predict(data)
+    palette = sns.color_palette('deep', np.unique(labels).max() + 1)
+    colors = [palette[x] if x >= 0 else (0.0, 0.0, 0.0) for x in labels]
+    plt.scatter(data.T[0], data.T[1], c=colors, **plot_kwds)
+    frame = plt.gca()
+    frame.axes.get_xaxis().set_visible(False)
+    frame.axes.get_yaxis().set_visible(False)
+    plt.title('Clusters found by {}'.format(str(algorithm.__name__)), fontsize=24)
+    #plt.text(-0.5, 0.7, 'Clustering took {:.2f} s'.format(end_time - start_time), fontsize=14)
         
 def do_clustering(feature_matrix, sub_id):
     '''
@@ -80,16 +112,18 @@ def do_clustering(feature_matrix, sub_id):
             sil_h.append(metrics.silhouette_score(feature_matrix_scaled,  hier.labels_))
     
     # plotting elbow method sse and silhouette score for K-Means
-    if True:
-        plt.subplot(131)
+    if False:
+        plt.figure()
         plt.plot(range(1,10), sse)
         plt.title('SSE vs No.of.Clusters for K-means')
         plt.xlabel('no.of.clusters')
         plt.ylabel('sum of squared errors')
         plt.show()
-        
+    
+    # plotting silhouette score for k-means
     if True:
-        plt.subplot(132)
+        plt.figure()
+        plt.subplot(121)
         plt.plot(range(2,10), sil)
         plt.title('Silhouette score vs No.of.Clusters for K-means')
         plt.xlabel('no.of.clusters')
@@ -98,7 +132,7 @@ def do_clustering(feature_matrix, sub_id):
     
     # plotting silhouette score for hierarchial
     if True:
-        plt.subplot(133)
+        plt.subplot(122)
         plt.plot(range(2,10), sil_h)
         plt.title('Silhouette score vs No.of.Clusters for Hierarchial')
         plt.xlabel('no.of.clusters')
@@ -144,7 +178,7 @@ if cluster:
     subject = sys.argv[2]
     main(data_dir, subject)
 else:
-    data_dir = '/usr/users/tummala/HCP-YA'
+    data_dir = '/usr/users/tummala/bigdata1'
     subjects = sorted(os.listdir(data_dir))
     
     # image quality metrics
@@ -173,14 +207,14 @@ else:
                         data = json.load(in_json)
                         
                     subject_id.append(data['subject_ID'])
-                    msi.append(data['MSI'])
-                    snr.append(data['SNR'])
-                    svnr.append(data['SVNR'])
-                    cnr.append(data['CNR'])
-                    cvnr.append(data['CVNR'])
-                    tctv.append(data['TCTV'])
-                    fwhm.append(data['FWHM'])
-                    ent.append(data['ENT'])
+                    msi.append(data['MSI']) # mean signal intensity (computed along sagittal)
+                    snr.append(data['SNR']) # signal to noise ratio
+                    svnr.append(data['SVNR']) # signal variance to noise variance ratio
+                    cnr.append(data['CNR']) # contrast to noise ratio
+                    cvnr.append(data['CVNR']) # contrast variance to noise variance ratio
+                    tctv.append(data['TCTV']) # tissue contrast to tissue variance ratio
+                    fwhm.append(data['FWHM']) # full width half maximum
+                    ent.append(data['ENT']) # entropy
         
     im_quality_matrix = np.transpose(np.row_stack((msi, snr, svnr, cnr, cvnr, tctv, fwhm, ent)))
     do_clustering(im_quality_matrix, subject_id)

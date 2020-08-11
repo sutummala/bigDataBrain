@@ -10,7 +10,7 @@ from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QDA
-from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
@@ -209,7 +209,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     data2 : arrays
         matrix of all costs of group2 (abnormal). Each individual cost (feature) is arrnaged as a column
     reg_type : str
-        registration type, either rigid (6dof) or affine (12dof).
+        registration type, either rigid (6dof) or affine (12dof), or it could be non-linear.
 
     Returns
     -------
@@ -234,7 +234,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     scale = MinMaxScaler()
     X = scale.fit_transform(X)
     
-    # K-fold cross validation
+    # K-fold cross validation, with k = 5
     folds = StratifiedKFold(n_splits = 5)
     
     scores_lda = []
@@ -245,6 +245,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     scores_knn = []
     scores_lor = []
     scores_ada = []
+    scores_gra = []
     
     auc_lda = []
     auc_qda = [] 
@@ -254,6 +255,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     auc_knn = []
     auc_lor = []
     auc_ada = []
+    auc_gra = []
     
     for train_index, test_index in folds.split(X, y):
         
@@ -268,8 +270,8 @@ def combinational_cost(data1, data2, reg_type, image_tag):
         auc_qda.append(classifier_accuracy(QDA(), X_train, X_test, y_train, y_test)[1])
         
         # 2. Random Forest Classifier (it could be done in LDA transformed space if you have large number of features)  
-        scores_rfc.append(classifier_accuracy(RandomForestClassifier(criterion = 'entropy', n_estimators = 100, max_depth = 3), X_train, X_test, y_train, y_test)[0])
-        auc_rfc.append(classifier_accuracy(RandomForestClassifier(criterion = 'entropy', n_estimators = 100, max_depth = 3), X_train, X_test, y_train, y_test)[1])
+        scores_rfc.append(classifier_accuracy(RandomForestClassifier(criterion = 'gini', n_estimators = 100), X_train, X_test, y_train, y_test)[0])
+        auc_rfc.append(classifier_accuracy(RandomForestClassifier(criterion = 'gini', n_estimators = 100), X_train, X_test, y_train, y_test)[1])
         
         # 3. Support Vector Machine Classifier
         scores_svm.append(classifier_accuracy(SVC(kernel = 'rbf', gamma = 2, probability = True), X_train, X_test, y_train, y_test)[0])
@@ -291,7 +293,12 @@ def combinational_cost(data1, data2, reg_type, image_tag):
         scores_ada.append(classifier_accuracy(AdaBoostClassifier(n_estimators = 100), X_train, X_test, y_train, y_test)[0])
         auc_ada.append(classifier_accuracy(AdaBoostClassifier(n_estimators = 100), X_train, X_test, y_train, y_test)[1])
         
-    # Note: cross_val_score method could be used directly on the classifier model to avoid the above for loop
+        # 7a. Gradient Boosting Classifier
+        scores_gra.append(classifier_accuracy(GradientBoostingClassifier(random_state = 0), X_train, X_test, y_train, y_test)[0])
+        auc_gra.append(classifier_accuracy(GradientBoostingClassifier(random_state = 0), X_train, X_test, y_train, y_test)[1])
+        
+        
+    # Note: 'cross_val_score' method from sklearn could be used directly on the classifier model to avoid the above for loop. Further, f1-score could be used instead of accuracy metric if number of positive samples (mis-aligned) are low.
     
     print(f'accuracy using LDA classifier for {image_tag}-{reg_type} is: {np.average(scores_lda)}, AUC is: {np.average(auc_lda)}\n')
     print(f'accuracy using QDA classifier for {image_tag}-{reg_type} is: {np.average(scores_qda)}, AUC is: {np.average(auc_qda)}\n')
@@ -301,6 +308,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     print(f'accuracy using kNN classifier for {image_tag}-{reg_type} is: {np.average(scores_knn)}, AUC is: {np.average(auc_knn)}\n')
     print(f'accuracy using Logistic Regression classifier for {image_tag}-{reg_type} is: {np.average(scores_lor)}, AUC is: {np.average(auc_lor)}\n')
     print(f'accuracy using Ada Boost classifier for {image_tag}-{reg_type} is: {np.average(scores_ada)}, AUC is: {np.average(auc_ada)}\n')
+    print(f'accuracy using Gradient boosting classifier for {image_tag}-{reg_type} is: {np.average(scores_gra)}, AUC is: {np.average(auc_gra)}\n')
     
     # # plotting ROC curve for all above classifiers
     # lda_disp = metrics.plot_roc_curve(lda, X_test, y_test)
@@ -425,7 +433,7 @@ if __name__ == '__main__':
             #     compute_cutoff_auc(local_cost_vector_hcpya_T2toT1, local_test_cost_vector_hcpya_T2toT1, cost, 'T1', 'hrT2', 'local') # T2 brain to T1 brain
         
         # calling combinational_cost method to design a classifier 
-        combinational_cost(combine_cost_vector_T1, combine_test_cost_vector_T1, reg_type, 'T1')
+        combinational_cost(combine_cost_vector_T1, combine_test_cost_vector_T1, reg_type, 'T1') 
         combinational_cost(combine_cost_vector_T2, combine_test_cost_vector_T2, reg_type, 'T2')
         combinational_cost(combine_cost_vector_FLAIR, combine_test_cost_vector_FLAIR, reg_type, 'FLAIR')
         
