@@ -16,6 +16,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier as kNN
 import matplotlib.pyplot as plt
+import tensorflow as tf
+import pickle
 
 
 subpath1 = '/usr/users/tummala/bigdata1'
@@ -230,7 +232,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     X = np.concatenate((X_normal, X_misaligned))
     y = np.concatenate((x_normal_label, x_misaligned_label))
        
-    # scaling the costs (features) to make sure the ranges of individual features are same to avoid the effect of features that have relatively large values. It may not be necessary in this case    
+    # scaling the costs (features) to make sure the ranges of individual features are same to avoid the effect of features that have relatively large values. It may not be necessary in this case as all these 3 costs lie between 0 and 1  
     scale = MinMaxScaler()
     X = scale.fit_transform(X)
     
@@ -246,6 +248,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     scores_lor = []
     scores_ada = []
     scores_gra = []
+    scores_ann = []
     
     auc_lda = []
     auc_qda = [] 
@@ -256,47 +259,68 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     auc_lor = []
     auc_ada = []
     auc_gra = []
+    auc_ann = []
     
     for train_index, test_index in folds.split(X, y):
         
         X_train, X_test, y_train, y_test = X[train_index], X[test_index], y[train_index], y[test_index]
     
         # 1. Linear Discriminant Analysis Classifier
-        scores_lda.append(classifier_accuracy(LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1), X_train, X_test, y_train, y_test)[0]) # Accuracy
-        auc_lda.append(classifier_accuracy(LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1), X_train, X_test, y_train, y_test)[1]) # AUC
+        lda = LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1)
+        scores_lda.append(classifier_accuracy(lda, X_train, X_test, y_train, y_test)[0]) # Accuracy
+        auc_lda.append(classifier_accuracy(lda, X_train, X_test, y_train, y_test)[1]) # AUC
         
         # 1a. Quadratic Discriminant Analysis Classifier
-        scores_qda.append(classifier_accuracy(QDA(), X_train, X_test, y_train, y_test)[0])
-        auc_qda.append(classifier_accuracy(QDA(), X_train, X_test, y_train, y_test)[1])
+        qda = QDA()
+        scores_qda.append(classifier_accuracy(qda, X_train, X_test, y_train, y_test)[0])
+        auc_qda.append(classifier_accuracy(qda, X_train, X_test, y_train, y_test)[1])
         
-        # 2. Random Forest Classifier (it could be done in LDA transformed space if you have large number of features)  
-        scores_rfc.append(classifier_accuracy(RandomForestClassifier(criterion = 'gini', n_estimators = 100), X_train, X_test, y_train, y_test)[0])
-        auc_rfc.append(classifier_accuracy(RandomForestClassifier(criterion = 'gini', n_estimators = 100), X_train, X_test, y_train, y_test)[1])
+        # 2. Random Forest Classifier (it could be done in LDA transformed space if you have large number of features)
+        rfc = RandomForestClassifier(criterion = 'gini', n_estimators = 100)
+        scores_rfc.append(classifier_accuracy(rfc, X_train, X_test, y_train, y_test)[0])
+        auc_rfc.append(classifier_accuracy(rfc, X_train, X_test, y_train, y_test)[1])
         
         # 3. Support Vector Machine Classifier
-        scores_svm.append(classifier_accuracy(SVC(kernel = 'rbf', gamma = 2, probability = True), X_train, X_test, y_train, y_test)[0])
-        auc_svm.append(classifier_accuracy(SVC(kernel = 'rbf', gamma = 2, probability = True), X_train, X_test, y_train, y_test)[1])
+        svc = SVC(kernel = 'rbf', gamma = 2, probability = True)
+        scores_svm.append(classifier_accuracy(svc, X_train, X_test, y_train, y_test)[0])
+        auc_svm.append(classifier_accuracy(svc, X_train, X_test, y_train, y_test)[1])
         
         # 4. Gaussian Naive Bayes Classifier
-        scores_gnb.append(classifier_accuracy(GaussianNB(), X_train, X_test, y_train, y_test)[0])
-        auc_gnb.append(classifier_accuracy(GaussianNB(), X_train, X_test, y_train, y_test)[1])
+        gnb = GaussianNB()
+        scores_gnb.append(classifier_accuracy(gnb, X_train, X_test, y_train, y_test)[0])
+        auc_gnb.append(classifier_accuracy(gnb, X_train, X_test, y_train, y_test)[1])
         
         # 5. k-Nearest Neighbour Classifier
-        scores_knn.append(classifier_accuracy(kNN(n_neighbors = 9), X_train, X_test, y_train, y_test)[0])
-        auc_knn.append(classifier_accuracy(kNN(n_neighbors = 9), X_train, X_test, y_train, y_test)[1])
+        knn = kNN(n_neighbors = 9)
+        scores_knn.append(classifier_accuracy(knn, X_train, X_test, y_train, y_test)[0])
+        auc_knn.append(classifier_accuracy(knn, X_train, X_test, y_train, y_test)[1])
         
         # 6. Logistic Regression Classifier
-        scores_lor.append(classifier_accuracy(LogisticRegression(), X_train, X_test, y_train, y_test)[0])
-        auc_lor.append(classifier_accuracy(LogisticRegression(), X_train, X_test, y_train, y_test)[1])
+        lor = LogisticRegression()
+        scores_lor.append(classifier_accuracy(lor, X_train, X_test, y_train, y_test)[0])
+        auc_lor.append(classifier_accuracy(lor, X_train, X_test, y_train, y_test)[1])
         
         # 7. Ada Boost Classifier
-        scores_ada.append(classifier_accuracy(AdaBoostClassifier(n_estimators = 100), X_train, X_test, y_train, y_test)[0])
-        auc_ada.append(classifier_accuracy(AdaBoostClassifier(n_estimators = 100), X_train, X_test, y_train, y_test)[1])
+        ada = AdaBoostClassifier(n_estimators = 100)
+        scores_ada.append(classifier_accuracy(ada, X_train, X_test, y_train, y_test)[0])
+        auc_ada.append(classifier_accuracy(ada, X_train, X_test, y_train, y_test)[1])
         
         # 7a. Gradient Boosting Classifier
-        scores_gra.append(classifier_accuracy(GradientBoostingClassifier(random_state = 0), X_train, X_test, y_train, y_test)[0])
-        auc_gra.append(classifier_accuracy(GradientBoostingClassifier(random_state = 0), X_train, X_test, y_train, y_test)[1])
+        gra = GradientBoostingClassifier(random_state = 0)
+        scores_gra.append(classifier_accuracy(gra, X_train, X_test, y_train, y_test)[0])
+        auc_gra.append(classifier_accuracy(gra, X_train, X_test, y_train, y_test)[1])
         
+        # 8. Arteficial Neural Network (Deep Learning)
+        model_ann = tf.keras.models.Sequential()
+        model_ann.add(tf.keras.layers.Dense(units = 3, activation = 'relu', input_shape = (3,))) # input_shape takes height of the input layer which is usually fed during first dense layer allocation
+        model_ann.add(tf.keras.layers.Dense(units = 3, activation = 'relu')) # hidden layer
+        model_ann.add(tf.keras.layers.Dense(units = 4, activation = 'relu')) # hidden layer
+        model_ann.add(tf.keras.layers.Dense(units = 3, activation = 'relu')) # hidden layer
+        model_ann.add(tf.keras.layers.Dense(units = 2, activation = 'softmax')) # hidden layer
+        model_ann.compile(optimizer = 'sgd', loss = 'binary_crossentropy', metrics = ['accuracy']) # compile the neural network
+        model_ann.fit(X_train, y_train, epochs = 20) # fit the neural network on the training data
+        scores_ann.append(model_ann.evaluate(X_test, y_test)) # network accuracy
+        auc_ann.append(metrics.roc_auc_score(y_test, model_ann.predict_proba(X_test)[:, 1])) # network AUC
         
     # Note: 'cross_val_score' method from sklearn could be used directly on the classifier model to avoid the above for loop. Further, f1-score could be used instead of accuracy metric if number of positive samples (mis-aligned) are low.
     
@@ -309,6 +333,17 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     print(f'accuracy using Logistic Regression classifier for {image_tag}-{reg_type} is: {np.average(scores_lor)}, AUC is: {np.average(auc_lor)}\n')
     print(f'accuracy using Ada Boost classifier for {image_tag}-{reg_type} is: {np.average(scores_ada)}, AUC is: {np.average(auc_ada)}\n')
     print(f'accuracy using Gradient boosting classifier for {image_tag}-{reg_type} is: {np.average(scores_gra)}, AUC is: {np.average(auc_gra)}\n')
+    print(f'accuracy using ANN for {image_tag}-{reg_type} is: {np.average(scores_ann)}, AUC is: {np.average(auc_ann)}\n')
+    
+    save_model = '/usr/users/tummala/ml_classifier_models_checking_reg'
+    
+    if not os.path.exists(save_model):
+        os.makedirs(save_model)
+    
+    # saving the trained model, e.g. shown for saving ada boost classifier model and minmax scaling model
+    pickle.dump(scale, open(save_model+'/'+'scalar', 'wb'))
+    pickle.dump(ada, open(save_model+'/'+'ada_boost', 'wb'))
+    # pickle.load method could be used to load the model for later use and predict new cases
     
     # # plotting ROC curve for all above classifiers
     # lda_disp = metrics.plot_roc_curve(lda, X_test, y_test)
