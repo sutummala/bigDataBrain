@@ -1,4 +1,4 @@
-# code created by Sudhakar on May 2020
+# code created by Sudhakar on May 2020 and modified on August 2020 to add different classifiers
 # check registration
 
 
@@ -23,8 +23,8 @@ import pickle
 subpath1 = '/usr/users/tummala/bigdata1'
 subpath2 = '/usr/users/tummala/HCP-YA'
 
-voi_size = ''
-step_size = ''
+voi_size = 3
+step_size = 3 # stride
 # subpath3 = '/usr/users/tummala/bigdata'
 # subpath4 = '/usr/users/tummala/HCP-YA-test'
 
@@ -236,8 +236,8 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     scale = MinMaxScaler()
     X = scale.fit_transform(X)
     
-    # K-fold cross validation, with k = 5
-    folds = StratifiedKFold(n_splits = 5)
+    # K-fold cross validation, n_splits specifies the number of folds
+    folds = StratifiedKFold(n_splits = 3)
     
     scores_lda = []
     scores_qda = [] 
@@ -291,7 +291,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
         auc_gnb.append(classifier_accuracy(gnb, X_train, X_test, y_train, y_test)[1])
         
         # 5. k-Nearest Neighbour Classifier
-        knn = kNN(n_neighbors = 9)
+        knn = kNN(n_neighbors = 15)
         scores_knn.append(classifier_accuracy(knn, X_train, X_test, y_train, y_test)[0])
         auc_knn.append(classifier_accuracy(knn, X_train, X_test, y_train, y_test)[1])
         
@@ -310,17 +310,17 @@ def combinational_cost(data1, data2, reg_type, image_tag):
         scores_gra.append(classifier_accuracy(gra, X_train, X_test, y_train, y_test)[0])
         auc_gra.append(classifier_accuracy(gra, X_train, X_test, y_train, y_test)[1])
         
-        # 8. Arteficial Neural Network (Deep Learning)
-        model_ann = tf.keras.models.Sequential()
-        model_ann.add(tf.keras.layers.Dense(units = 3, activation = 'relu', input_shape = (3,))) # input_shape takes height of the input layer which is usually fed during first dense layer allocation
-        model_ann.add(tf.keras.layers.Dense(units = 3, activation = 'relu')) # hidden layer
-        model_ann.add(tf.keras.layers.Dense(units = 4, activation = 'relu')) # hidden layer
-        model_ann.add(tf.keras.layers.Dense(units = 3, activation = 'relu')) # hidden layer
-        model_ann.add(tf.keras.layers.Dense(units = 2, activation = 'softmax')) # hidden layer
-        model_ann.compile(optimizer = 'sgd', loss = 'binary_crossentropy', metrics = ['accuracy']) # compile the neural network
-        model_ann.fit(X_train, y_train, epochs = 20) # fit the neural network on the training data
-        scores_ann.append(model_ann.evaluate(X_test, y_test)) # network accuracy
-        auc_ann.append(metrics.roc_auc_score(y_test, model_ann.predict_proba(X_test)[:, 1])) # network AUC
+        # # 8. Arteficial Neural Network (Deep Learning)
+        # model_ann = tf.keras.models.Sequential()
+        # model_ann.add(tf.keras.layers.Dense(units = 3, activation = 'relu', input_shape = (3,))) # input_shape takes height of the input layer which is usually fed during first dense layer allocation
+        # model_ann.add(tf.keras.layers.Dense(units = 3, activation = 'relu')) # hidden layer
+        # model_ann.add(tf.keras.layers.Dense(units = 4, activation = 'relu')) # hidden layer
+        # model_ann.add(tf.keras.layers.Dense(units = 3, activation = 'relu')) # hidden layer
+        # model_ann.add(tf.keras.layers.Dense(units = 2, activation = 'softmax')) # hidden layer
+        # model_ann.compile(optimizer = 'sgd', loss = 'binary_crossentropy', metrics = ['accuracy']) # compile the neural network
+        # model_ann.fit(X_train, y_train, epochs = 20) # fit the neural network on the training data
+        # scores_ann.append(model_ann.evaluate(X_test, y_test)) # network accuracy
+        # auc_ann.append(metrics.roc_auc_score(y_test, model_ann.predict_proba(X_test)[:, 1])) # network AUC
         
     # Note: 'cross_val_score' method from sklearn could be used directly on the classifier model to avoid the above for loop. Further, f1-score could be used instead of accuracy metric if number of positive samples (mis-aligned) are low.
     
@@ -333,7 +333,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     print(f'accuracy using Logistic Regression classifier for {image_tag}-{reg_type} is: {np.average(scores_lor)}, AUC is: {np.average(auc_lor)}\n')
     print(f'accuracy using Ada Boost classifier for {image_tag}-{reg_type} is: {np.average(scores_ada)}, AUC is: {np.average(auc_ada)}\n')
     print(f'accuracy using Gradient boosting classifier for {image_tag}-{reg_type} is: {np.average(scores_gra)}, AUC is: {np.average(auc_gra)}\n')
-    print(f'accuracy using ANN for {image_tag}-{reg_type} is: {np.average(scores_ann)}, AUC is: {np.average(auc_ann)}\n')
+    #print(f'accuracy using ANN for {image_tag}-{reg_type} is: {np.average(scores_ann)}, AUC is: {np.average(auc_ann)}\n')
     
     save_model = '/usr/users/tummala/ml_classifier_models_checking_reg'
     
@@ -342,6 +342,8 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     
     # saving the trained model, e.g. shown for saving ada boost classifier model and minmax scaling model
     pickle.dump(scale, open(save_model+'/'+'scalar', 'wb'))
+    pickle.dump(lda, open(save_model+'/'+'lda', 'wb'))
+    pickle.dump(rfc, open(save_model+'/'+'rfc', 'wb'))
     pickle.dump(ada, open(save_model+'/'+'ada_boost', 'wb'))
     # pickle.load method could be used to load the model for later use and predict new cases
     
@@ -381,7 +383,9 @@ if __name__ == '__main__':
             # getting normal values for hrT1, hrT2 and hrFLAIR for bigdata 
             global_cost_vector_bigdata_T1, local_cost_vector_bigdata_T1 = get_cost_vectors(cost, reg_type, subpath1, 'hrT1') # T1 to MNI
             global_cost_vector_bigdata_FLAIR, local_cost_vector_bigdata_FLAIR = get_cost_vectors(cost, reg_type, subpath1, 'hrFLAIR') # FLAIR to MNI
-            global_cost_vector_bigdata_FLAIRtoT1, local_cost_vector_bigdata_FLAIRtoT1 = get_coreg_cost_vectors(cost, subpath1, 'hrFLAIR') # FLAIR brain to T1 brain (only align)
+            
+            if reg_type == 'align':
+                global_cost_vector_bigdata_FLAIRtoT1, local_cost_vector_bigdata_FLAIRtoT1 = get_coreg_cost_vectors(cost, subpath1, 'hrFLAIR') # FLAIR brain to T1 brain (only align)
             
             combine_cost_vector_T1.append(local_cost_vector_bigdata_T1) # T1 data
             combine_cost_vector_FLAIR.append(local_cost_vector_bigdata_FLAIR) # FLAIR data
@@ -389,7 +393,9 @@ if __name__ == '__main__':
             # HCP-YA
             global_cost_vector_hcpya_T1, local_cost_vector_hcpya_T1 = get_cost_vectors(cost, reg_type, subpath2, 'hrT1') # T1 to MNI
             global_cost_vector_hcpya_T2, local_cost_vector_hcpya_T2 = get_cost_vectors(cost, reg_type, subpath2, 'hrT2') # T2 to MNI
-            global_cost_vector_hcpya_T2toT1, local_cost_vector_hcpya_T2toT1 = get_coreg_cost_vectors(cost, subpath2, 'hrT2') # T2 brain to T1 brain (only align)
+            
+            if reg_type == 'align':
+                global_cost_vector_hcpya_T2toT1, local_cost_vector_hcpya_T2toT1 = get_coreg_cost_vectors(cost, subpath2, 'hrT2') # T2 brain to T1 brain (only align)
             
             combine_cost_vector_T2.append(local_cost_vector_hcpya_T2) # T2 data 
     
