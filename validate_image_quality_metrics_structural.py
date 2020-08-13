@@ -7,10 +7,10 @@ import seaborn as sns
 import json
 import numpy as np
 from sklearn.cluster import KMeans, AgglomerativeClustering
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MaxAbsScaler
 import matplotlib.pyplot as plt
 from sklearn import metrics
-
+import check_registration as cr
 
 plot_kwds = {'alpha' : 0.25, 's' : 80, 'linewidths':0}
 
@@ -56,8 +56,9 @@ def do_clustering(feature_matrix, sub_id):
     -------
     labels for each subject based on unsupervised learning (clustering in this case).
     '''
+    
     # feature scaling in advance
-    scalar = MinMaxScaler()
+    scalar = MaxAbsScaler()
     feature_matrix_scaled = scalar.fit_transform(feature_matrix)
     
     # 1. K-means and Hierrarchial clustering (agglomerative)
@@ -120,6 +121,11 @@ fwhm = []
 ent = []
     
 quality_flag = []
+subjects_with_quality_flag = []
+
+unsupervised = False
+
+quality_label = []
 
 for subject in subjects:
     
@@ -127,9 +133,8 @@ for subject in subjects:
     raw_image_path = os.path.join(data_dir, subject, 'anat')
         
     if os.path.exists(raw_image_path):
-        print(f'checking image quality for {subject}++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n')
         for json_file in os.listdir(raw_image_path):
-            if json_file.endswith('image_quality_metrics.json') and json_file.find('hrT1') != -1:
+            if json_file.endswith('image_quality_metrics.json') and json_file.find('hrFLAIR') != -1:
                 with open(raw_image_path+'/'+json_file) as in_json:
                     data = json.load(in_json)
                     subject_id.append(data['subject_ID'])
@@ -141,13 +146,29 @@ for subject in subjects:
                     tctv.append(data['TCTV']) # tissue contrast to tissue variance ratio
                     fwhm.append(data['FWHM']) # full width half maximum
                     ent.append(data['ENT']) # entropy
-            elif json_file.endswith('hrT1.json'):
+            elif json_file.endswith('hrFLAIR.json'):
                 with open(raw_image_path+'/'+json_file) as in_meta_json:
                     meta_data = json.load(in_meta_json)
                     
-                    quality_flag.append(meta_data["NMRI-Technical"])
-                    
+                    if meta_data['NMRI-Technical'] == ['good']:
+                        quality_label.append(0)
+                    else:
+                        quality_label.append(1)
                         
-im_quality_matrix = np.transpose(np.row_stack((msi, snr, svnr, cnr, cvnr, tctv, fwhm, ent)))
-do_clustering(im_quality_matrix, subject_id)
+                    quality_flag.append(meta_data['NMRI-Technical'])
+                    subjects_with_quality_flag.append(meta_data['Subject'])
+                    
+im_quality_matrix = np.transpose(np.row_stack((snr, cnr, tctv, fwhm))) # creating a matrix by combining different quality metrics
+                   
+if unsupervised:
+    print(f'doing clustering to find the number of clusters automatically\n')                        
+    do_clustering(im_quality_matrix, subject_id)
+else:
+    print(f'doing supervised learning classification by making use of available quality flags\n')
+    quality_label = np.array(quality_label)
+    
+    data1 = im_quality_matrix[quality_label == 0]
+    data2 = im_quality_matrix[quality_label == 1]
+    
+    cr.combinational_cost(np.transpose(data1), np.transpose(data2), 'image_quality_check', 'T1', 2)
      

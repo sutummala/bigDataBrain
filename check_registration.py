@@ -7,7 +7,7 @@ import all_plots as ap
 import numpy as np
 from sklearn import metrics
 from sklearn.model_selection import StratifiedKFold, cross_val_score
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, MaxAbsScaler
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QDA
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier
@@ -202,16 +202,18 @@ def classifier_accuracy(model, X_train, X_test, y_train, y_test):
     model.fit(X_train, y_train)
     return model.score(X_test, y_test), metrics.roc_auc_score(y_test, model.predict_proba(X_test)[:,1])    
 
-def combinational_cost(data1, data2, reg_type, image_tag):
+def combinational_cost(data1, data2, reg_type, image_tag, no_of_folds):
     '''
     Parameters
     ----------
     data1 : arrays
-        matrix of all costs of group1 (normal). Each individual cost (feature) is arrnaged as a column
+        matrix of all costs of group1 (normal). Each individual cost (feature) should be arrnaged as a column
     data2 : arrays
-        matrix of all costs of group2 (abnormal). Each individual cost (feature) is arrnaged as a column
+        matrix of all costs of group2 (abnormal). Each individual cost (feature) should be arrnaged as a column
     reg_type : str
         registration type, either rigid (6dof) or affine (12dof), or it could be non-linear.
+    no_of_folds : int
+        specify number of folds for nested cross-validation
 
     Returns
     -------
@@ -233,11 +235,11 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     y = np.concatenate((x_normal_label, x_misaligned_label))
        
     # scaling the costs (features) to make sure the ranges of individual features are same to avoid the effect of features that have relatively large values. It may not be necessary in this case as all these 3 costs lie between 0 and 1  
-    scale = MinMaxScaler()
+    scale = MaxAbsScaler()
     X = scale.fit_transform(X)
     
     # K-fold cross validation, n_splits specifies the number of folds
-    folds = StratifiedKFold(n_splits = 3)
+    folds = StratifiedKFold(n_splits = no_of_folds)
     
     scores_lda = []
     scores_qda = [] 
@@ -310,17 +312,17 @@ def combinational_cost(data1, data2, reg_type, image_tag):
         scores_gra.append(classifier_accuracy(gra, X_train, X_test, y_train, y_test)[0])
         auc_gra.append(classifier_accuracy(gra, X_train, X_test, y_train, y_test)[1])
         
-        # # 8. Arteficial Neural Network (Deep Learning)
-        # model_ann = tf.keras.models.Sequential()
-        # model_ann.add(tf.keras.layers.Dense(units = 3, activation = 'relu', input_shape = (3,))) # input_shape takes height of the input layer which is usually fed during first dense layer allocation
-        # model_ann.add(tf.keras.layers.Dense(units = 3, activation = 'relu')) # hidden layer
-        # model_ann.add(tf.keras.layers.Dense(units = 4, activation = 'relu')) # hidden layer
-        # model_ann.add(tf.keras.layers.Dense(units = 3, activation = 'relu')) # hidden layer
-        # model_ann.add(tf.keras.layers.Dense(units = 2, activation = 'softmax')) # hidden layer
-        # model_ann.compile(optimizer = 'sgd', loss = 'binary_crossentropy', metrics = ['accuracy']) # compile the neural network
-        # model_ann.fit(X_train, y_train, epochs = 20) # fit the neural network on the training data
-        # scores_ann.append(model_ann.evaluate(X_test, y_test)) # network accuracy
-        # auc_ann.append(metrics.roc_auc_score(y_test, model_ann.predict_proba(X_test)[:, 1])) # network AUC
+        # 8. Arteficial Neural Network (Deep Learning)
+        model_ann = tf.keras.models.Sequential()
+        model_ann.add(tf.keras.layers.Dense(units = np.shape(X_train)[1] + 1, activation = 'relu', input_shape = (np.shape(X_train)[1],))) # input_shape takes height of the input layer which is usually fed during first dense layer allocation
+        model_ann.add(tf.keras.layers.Dense(units = np.shape(X_train)[1] + 1, activation = 'relu')) # hidden layer
+        model_ann.add(tf.keras.layers.Dense(units = np.shape(X_train)[1] + 2, activation = 'relu')) # hidden layer
+        model_ann.add(tf.keras.layers.Dense(units = np.shape(X_train)[1] + 1, activation = 'relu')) # hidden layer
+        model_ann.add(tf.keras.layers.Dense(units = 2, activation = 'softmax')) # hidden layer
+        model_ann.compile(optimizer = 'sgd', loss = 'binary_crossentropy', metrics = ['accuracy']) # compile the neural network
+        model_ann.fit(X_train, y_train, epochs = 20) # fit the neural network on the training data
+        scores_ann.append(model_ann.evaluate(X_test, y_test)) # network accuracy
+        auc_ann.append(metrics.roc_auc_score(y_test, model_ann.predict_proba(X_test)[:, 1])) # network AUC
         
     # Note: 'cross_val_score' method from sklearn could be used directly on the classifier model to avoid the above for loop. Further, f1-score could be used instead of accuracy metric if number of positive samples (mis-aligned) are low.
     
@@ -333,7 +335,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
     print(f'accuracy using Logistic Regression classifier for {image_tag}-{reg_type} is: {np.average(scores_lor)}, AUC is: {np.average(auc_lor)}\n')
     print(f'accuracy using Ada Boost classifier for {image_tag}-{reg_type} is: {np.average(scores_ada)}, AUC is: {np.average(auc_ada)}\n')
     print(f'accuracy using Gradient boosting classifier for {image_tag}-{reg_type} is: {np.average(scores_gra)}, AUC is: {np.average(auc_gra)}\n')
-    #print(f'accuracy using ANN for {image_tag}-{reg_type} is: {np.average(scores_ann)}, AUC is: {np.average(auc_ann)}\n')
+    print(f'accuracy using ANN for {image_tag}-{reg_type} is: {np.average(scores_ann)}, AUC is: {np.average(auc_ann)}\n')
     
     save_model = '/usr/users/tummala/ml_classifier_models_checking_reg'
     
@@ -341,11 +343,16 @@ def combinational_cost(data1, data2, reg_type, image_tag):
         os.makedirs(save_model)
     
     # saving the trained model, e.g. shown for saving ada boost classifier model and minmax scaling model
-    pickle.dump(scale, open(save_model+'/'+'scalar', 'wb'))
-    pickle.dump(lda, open(save_model+'/'+'lda', 'wb'))
-    pickle.dump(rfc, open(save_model+'/'+'rfc', 'wb'))
-    pickle.dump(ada, open(save_model+'/'+'ada_boost', 'wb'))
-    # pickle.load method could be used to load the model for later use and predict new cases
+    pickle.dump(scale, open(save_model+'/'+'scale_'+reg_type+image_tag, 'wb'))
+    pickle.dump(lda, open(save_model+'/'+'lda_'+reg_type+image_tag, 'wb'))
+    pickle.dump(qda, open(save_model+'/'+'qda_'+reg_type+image_tag, 'wb'))
+    pickle.dump(rfc, open(save_model+'/'+'rfc_'+reg_type+image_tag, 'wb'))
+    pickle.dump(svc, open(save_model+'/'+'svm_'+reg_type+image_tag, 'wb'))
+    pickle.dump(gnb, open(save_model+'/'+'gnb_'+reg_type+image_tag, 'wb'))
+    pickle.dump(knn, open(save_model+'/'+'knn_'+reg_type+image_tag, 'wb'))
+    pickle.dump(lor, open(save_model+'/'+'lor_'+reg_type+image_tag, 'wb'))
+    pickle.dump(ada, open(save_model+'/'+'ada_boost_'+reg_type+image_tag, 'wb'))
+    # pickle.load method could be used to load the model for later use and predict method of the seved model to categorize new cases
     
     # # plotting ROC curve for all above classifiers
     # lda_disp = metrics.plot_roc_curve(lda, X_test, y_test)
@@ -367,7 +374,7 @@ def combinational_cost(data1, data2, reg_type, image_tag):
 
 if __name__ == '__main__':
     
-    costs = ['ncc', 'nmi', 'cor']
+    costs = ['ncc', 'nmi']
     reg_types = ['align', 'mni']
 
     for reg_type in reg_types:
@@ -443,40 +450,40 @@ if __name__ == '__main__':
                 ap.plot_cost([local_cost_vector_hcpya_T2toT1, local_test_cost_vector_hcpya_T2toT1], cost,
                           ['T2-T1', 'T2-T1-test'], f'HCP-YA-Align') # plotting local cost for HCPYA T2
             
-            # # Computing cut-off point and AUC for normal and test
-            # print('doing for Big Data\n')
+            # Computing cut-off point and AUC for normal and test
+            print('doing for Big Data\n')
             
-            # #compute_cutoff_auc(global_cost_vector_bigdata_T1, global_test_cost_vector_bigdata_T1, cost, reg_type, 'hrT1', 'global') # T1 to MNI
-            # compute_cutoff_auc(local_cost_vector_bigdata_T1, local_test_cost_vector_bigdata_T1, cost, reg_type, 'hrT1', 'local') # T1 to MNI
-            # print('----------------------------------------------------------------------------------------------------')
+            #compute_cutoff_auc(global_cost_vector_bigdata_T1, global_test_cost_vector_bigdata_T1, cost, reg_type, 'hrT1', 'global') # T1 to MNI
+            compute_cutoff_auc(local_cost_vector_bigdata_T1, local_test_cost_vector_bigdata_T1, cost, reg_type, 'hrT1', 'local') # T1 to MNI
+            print('----------------------------------------------------------------------------------------------------')
             
-            # #compute_cutoff_auc(global_cost_vector_bigdata_FLAIR, global_test_cost_vector_bigdata_FLAIR, cost, reg_type, 'hrFLAIR', 'global') # FLAIR to MNI
-            # compute_cutoff_auc(local_cost_vector_bigdata_FLAIR, local_test_cost_vector_bigdata_FLAIR, cost, reg_type, 'hrFLAIR', 'local') # FLAIR to MNI
-            # print('----------------------------------------------------------------------------------------------------')
+            #compute_cutoff_auc(global_cost_vector_bigdata_FLAIR, global_test_cost_vector_bigdata_FLAIR, cost, reg_type, 'hrFLAIR', 'global') # FLAIR to MNI
+            compute_cutoff_auc(local_cost_vector_bigdata_FLAIR, local_test_cost_vector_bigdata_FLAIR, cost, reg_type, 'hrFLAIR', 'local') # FLAIR to MNI
+            print('----------------------------------------------------------------------------------------------------')
             
-            # if reg_type == 'align':
-            #     #compute_cutoff_auc(global_cost_vector_bigdata_FLAIRtoT1, global_test_cost_vector_bigdata_FLAIRtoT1, cost, 'T1', 'hrFLAIR', 'global') # FLAIR brain to T1 brain
-            #     compute_cutoff_auc(local_cost_vector_bigdata_FLAIRtoT1, local_test_cost_vector_bigdata_FLAIRtoT1, cost, 'T1', 'hrFLAIR', 'local') # FLAIR brain to T1 brain
-            #     print('----------------------------------------------------------------------------------------------------')
+            if False:
+                compute_cutoff_auc(global_cost_vector_bigdata_FLAIRtoT1, global_test_cost_vector_bigdata_FLAIRtoT1, cost, 'T1', 'hrFLAIR', 'global') # FLAIR brain to T1 brain
+                compute_cutoff_auc(local_cost_vector_bigdata_FLAIRtoT1, local_test_cost_vector_bigdata_FLAIRtoT1, cost, 'T1', 'hrFLAIR', 'local') # FLAIR brain to T1 brain
+                print('----------------------------------------------------------------------------------------------------')
             
-            # print('doing for HCP-YA\n')
+            print('doing for HCP-YA\n')
             
-            # #compute_cutoff_auc(global_cost_vector_hcpya_T1, global_test_cost_vector_hcpya_T1, cost, reg_type, 'hrT1', 'global') # T1 to MNI
-            # compute_cutoff_auc(local_cost_vector_hcpya_T1, local_test_cost_vector_hcpya_T1, cost, reg_type, 'hrT1', 'local') # T1 to MNI
-            # print('----------------------------------------------------------------------------------------------------')
+            #compute_cutoff_auc(global_cost_vector_hcpya_T1, global_test_cost_vector_hcpya_T1, cost, reg_type, 'hrT1', 'global') # T1 to MNI
+            compute_cutoff_auc(local_cost_vector_hcpya_T1, local_test_cost_vector_hcpya_T1, cost, reg_type, 'hrT1', 'local') # T1 to MNI
+            print('----------------------------------------------------------------------------------------------------')
             
-            # #compute_cutoff_auc(global_cost_vector_hcpya_T2, global_test_cost_vector_hcpya_T2, cost, reg_type, 'hrT2', 'global') # T2 to MNI
-            # compute_cutoff_auc(local_cost_vector_hcpya_T2, local_test_cost_vector_hcpya_T2, cost, reg_type, 'hrT2', 'local') # T2 to MNI
-            # print('----------------------------------------------------------------------------------------------------')
+            #compute_cutoff_auc(global_cost_vector_hcpya_T2, global_test_cost_vector_hcpya_T2, cost, reg_type, 'hrT2', 'global') # T2 to MNI
+            compute_cutoff_auc(local_cost_vector_hcpya_T2, local_test_cost_vector_hcpya_T2, cost, reg_type, 'hrT2', 'local') # T2 to MNI
+            print('----------------------------------------------------------------------------------------------------')
             
-            # if reg_type == 'align':
-            #     #compute_cutoff_auc(global_cost_vector_hcpya_T2toT1, global_test_cost_vector_hcpya_T2toT1, cost, 'T1', 'hrT2', 'global') # T2 brain to T1 brain
-            #     compute_cutoff_auc(local_cost_vector_hcpya_T2toT1, local_test_cost_vector_hcpya_T2toT1, cost, 'T1', 'hrT2', 'local') # T2 brain to T1 brain
+            if False:
+                compute_cutoff_auc(global_cost_vector_hcpya_T2toT1, global_test_cost_vector_hcpya_T2toT1, cost, 'T1', 'hrT2', 'global') # T2 brain to T1 brain
+                compute_cutoff_auc(local_cost_vector_hcpya_T2toT1, local_test_cost_vector_hcpya_T2toT1, cost, 'T1', 'hrT2', 'local') # T2 brain to T1 brain
         
         # calling combinational_cost method to design a classifier 
-        combinational_cost(combine_cost_vector_T1, combine_test_cost_vector_T1, reg_type, 'T1') 
-        combinational_cost(combine_cost_vector_T2, combine_test_cost_vector_T2, reg_type, 'T2')
-        combinational_cost(combine_cost_vector_FLAIR, combine_test_cost_vector_FLAIR, reg_type, 'FLAIR')
+        combinational_cost(combine_cost_vector_T1, combine_test_cost_vector_T1, reg_type, 'T1', 5) 
+        combinational_cost(combine_cost_vector_T2, combine_test_cost_vector_T2, reg_type, 'T2', 5)
+        combinational_cost(combine_cost_vector_FLAIR, combine_test_cost_vector_FLAIR, reg_type, 'FLAIR', 5)
         
         
         
