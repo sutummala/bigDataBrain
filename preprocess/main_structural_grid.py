@@ -17,8 +17,8 @@ npm.preprocessing_main(data_dir, subject)
 nss.do_spm_segmentation(data_dir, subject, image_type = 'anat', multi_channel = True)
             
  # Freesurfer processing (cortical segmentation, hippocampal subfields)
-#nfs.fsProcessing(data_dir, subject, 'anat') # doing it on anat (raw) images
-#nfs.fsProcessing(data_dir, subject, 'align') # doing it on aligned images
+nfs.fsProcessing(data_dir, subject, 'anat') # doing it on anat (raw) images
+nfs.fsProcessing(data_dir, subject, 'align') # doing it on aligned images
         
 
       
