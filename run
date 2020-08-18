@@ -1,0 +1,4 @@
+module load conda/2019.03
+source activate $NRMI_TOOLS/conda_nipype
+unset LD_PRELAOD
+spyder

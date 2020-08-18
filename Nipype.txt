@@ -1,0 +1,4 @@
+export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
+module load ants
+module load conda/2019.03
+source activate $NMRI_TOOLS/conda_nipype
