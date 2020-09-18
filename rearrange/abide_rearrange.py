@@ -16,7 +16,7 @@ for subject in subjects:
     print(f're-arranging for {subject}')
     
     file_path = os.path.join(data_path, subject, 'MP-RAGE', '2000-01-01_00_00_00.0')
-    file_path_new = os.path.join(data_path_new, subject)
+    file_path_new = os.path.join(data_path_new, subject, 'anat')
     
     if not os.path.exists(file_path_new):
         os.makedirs(file_path_new)
