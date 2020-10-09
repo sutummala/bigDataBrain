@@ -6,14 +6,10 @@ import os
 import numpy as np
 import registration_cost_function as rcf
 
-if 1:
-    data_dir = sys.argv[1] # Path to the subjects data directory
-    subject = sys.argv[2] # Subject ID
-else:
-    data_dir = '/usr/users/tummala/bigdata1' # Path to the subjects data directory
-    subject = os.listdir(data_dir)[1] # Subject ID
+# data_dir = sys.argv[1] # Path to the subjects data directory
+# subject = sys.argv[2] # Subject ID
 
-refpath = "/usr/users/nmri/tools/fsl/6.0.3/data/standard" # FSL template
+refpath = "/home/tummala/mri/tools/fsl/data/standard" # FSL template
   
 def compute_cost_vectors(data_dir, subject, reg_type, cost_func, tag, voi_size, step_size):
     '''
@@ -46,16 +42,20 @@ def compute_cost_vectors(data_dir, subject, reg_type, cost_func, tag, voi_size, 
         required_folder = data_dir+'/'+subject+'/mni'
         checking_tag = 'reoriented.mni.nii'
         
-    cost_folder = data_dir+'/'+subject+'/cost'+str(voi_size)
+    cost_folder = data_dir+'/'+subject+'/cost'+str(voi_size)+str(step_size)
     if not os.path.exists(cost_folder):
         os.makedirs(cost_folder)
     movingfiles = os.listdir(required_folder)
     for movingfile in movingfiles:
         if movingfile.endswith(checking_tag) and tag in movingfile:
             print(f'{subject}, checking file: {movingfile}')
-            global_cost, local_cost = rcf.do_check_registration(refpath, required_folder+'/'+movingfile, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)
-            cost_file = movingfile[0:-4]+f'.{cost_func}.data'       
-            np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.6f')
+            cost_file = movingfile[0:-4]+f'.{cost_func}.data'
+            
+            if os.path.exists(cost_folder+'/'+cost_file) and os.path.getsize(cost_folder+'/'+cost_file) > 0:
+                print(f'cost values were already computed at {cost_file}')
+            else:
+                global_cost, local_cost = rcf.do_check_registration(refpath, required_folder+'/'+movingfile, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)
+                np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.6f')
             
 def compute_coreg_cost_vectors(data_dir, subject, cost_func, tag, voi_size, step_size):
     '''
@@ -86,7 +86,7 @@ def compute_coreg_cost_vectors(data_dir, subject, cost_func, tag, voi_size, step
     ref_file = False
     moving_file = False
     
-    cost_folder = data_dir+'/'+subject+'/cost'+str(voi_size)
+    cost_folder = data_dir+'/'+subject+'/cost'+str(voi_size)+str(step_size)
     if not os.path.exists(cost_folder):
         os.makedirs(cost_folder)
     movingfiles = os.listdir(required_folder)
@@ -98,26 +98,54 @@ def compute_coreg_cost_vectors(data_dir, subject, cost_func, tag, voi_size, step
             movingfile_moving = movingfile
             moving_file = True
     if ref_file and moving_file:
-        print(f'{subject}, checking files: {movingfile_ref, movingfile_moving}')
-        global_cost, local_cost = rcf.do_check_coregistration(required_folder+'/'+movingfile_ref, required_folder+'/'+movingfile_moving, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)
-        cost_file = movingfile_moving[0:-4]+f'.{cost_func}.data'       
-        np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.6f')
+        print(f'{subject}, checking files: {movingfile_ref, movingfile_moving}\n')
+        cost_file = movingfile_moving[0:-4]+f'.{cost_func}.data'
+        
+        if os.path.exists(cost_folder+'/'+cost_file) and os.path.getsize(cost_folder+'/'+cost_file) > 0:
+            print(f'cost values were already computed at {cost_file}')
+        else:
+            global_cost, local_cost = rcf.do_check_coregistration(required_folder+'/'+movingfile_ref, required_folder+'/'+movingfile_moving, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)
+            np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.6f')
 
-image_types = ['hrT1', 'hrT2', 'hrFLAIR']
-costs = ['ncc', 'nmi', 'cor']
-reg_types = ['align', 'affine']
+def main(data_dir, subject):
+    '''
+    Parameters
+    ----------
+    data_dir : str
+        string representing the data directory.
+    subject : str
+        subject ID.
 
-# VOI and step size for local cost computation
-voi_size = 7
-step_size = 7
-
-for image_type in image_types:
+    Returns
+    -------
+    NCC, NMI and CA values for rigid and affine.
+    
+    '''
+    image_types = ['hrT1', 'hrT2', 'hrFLAIR']
+    costs = ['ncc', 'nmi', 'cor']
+    reg_types = ['align', 'affine']
+    
+    # VOI and step size for local cost computation
+    voi_size = 3
+    step_size = 3 # stride
+    
+    for image_type in image_types:
         for cost in costs:
             # computing cost for co-registration of T2/FLAIR brain to T1 brain
-            compute_coreg_cost_vectors(data_dir, subject, cost, image_type, voi_size, step_size)
+            if image_type == 'hrT2' or image_type == 'hrFLAIR' or image_type == 'hrPD':
+                compute_coreg_cost_vectors(data_dir, subject, cost, image_type, voi_size, step_size)
             for reg_type in reg_types:
             # dealing with hrT1, hrT2 and hrFLAIR for bigdata and HCPYA, rigid and affine registration
                 compute_cost_vectors(data_dir, subject, reg_type, cost, image_type, voi_size, step_size)
+
+# for image_type in image_types:
+#         for cost in costs:
+#             # computing cost for co-registration of T2/FLAIR brain to T1 brain
+#             if image_type == 'hrT2' or image_type == 'hrFLAIR' or image_type == 'hrPD':
+#                 compute_coreg_cost_vectors(data_dir, subject, cost, image_type, voi_size, step_size)
+#             for reg_type in reg_types:
+#             # dealing with hrT1, hrT2 and hrFLAIR for bigdata and HCPYA, rigid and affine registration
+#                 compute_cost_vectors(data_dir, subject, reg_type, cost, image_type, voi_size, step_size)
             
 print('done computation\n')
 

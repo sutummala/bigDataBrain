@@ -8,10 +8,10 @@ import numpy as np
 import decompose_compose_trans_matrix as dctm
 import registration_cost_function as rcf
 
-datapath = sys.argv[1] # Path to the subjects data directory
-subject = sys.argv[2] # Subject ID
+# datapath = sys.argv[1] # Path to the subjects data directory
+# subject = sys.argv[2] # Subject ID
 
-refpath = "/usr/users/nmri/tools/fsl/6.0.3/data/standard" # FSL template
+refpath = "/home/tummala/mri/tools/fsl/data/standard" # FSL template
 ref = refpath+'/MNI152_T1_1mm.nii.gz' # Whole brain MNI 
 
 def generate_new_param(scales, trans, rots, t):
@@ -40,7 +40,7 @@ def generate_new_param(scales, trans, rots, t):
     
     return scales_new, trans_new, rots_new
 
-def generate_coreg_test_images(img_type, voi_size, step_size, no_of_test_images):
+def generate_coreg_test_images(datapath, subject, img_type, voi_size, step_size, no_of_test_images):
     ''' generating test images for co-registration of T2/FLAIR to T1'''
     
     mat_path = datapath+'/'+subject+'/mat'
@@ -79,10 +79,18 @@ def generate_coreg_test_images(img_type, voi_size, step_size, no_of_test_images)
                                 
                 mat_modified = dctm.compose(scales_new, trans_new, rots_new, origin = None)
                 #print(mat_orig - mat_modified)
-                np.savetxt(test_mat_path+'/'+testfile, mat_modified, fmt = '%10.19f')
-                naf.doApplyXFM(raw_path+'/'+moving_file, test_mat_path+'/'+testfile, raw_path+'/'+ref_file, test_imgs_path+'/'+outfile, 'spline', img_type)
+                
+                if os.path.exists(test_mat_path+'/'+testfile):
+                    print(f'test mat was already generated, {testfile}')
+                else:
+                    np.savetxt(test_mat_path+'/'+testfile, mat_modified, fmt = '%10.19f')
+                    
+                if os.path.exists(test_imgs_path+'/'+outfile):
+                    print(f'test image was already generated, {outfile}')
+                else:
+                    naf.doApplyXFM(raw_path+'/'+moving_file, test_mat_path+'/'+testfile, raw_path+'/'+ref_file, test_imgs_path+'/'+outfile, 'spline', img_type)
 
-def compute_coreg_test_cost_vectors(cost_func, image_type, voi_size, step_size):
+def compute_coreg_test_cost_vectors(datapath, subject, cost_func, image_type, voi_size, step_size):
     ''' computes cost vector for given combination of cost and registration type'''
     
     print(f'doing for cost {cost_func}\n')
@@ -105,11 +113,15 @@ def compute_coreg_test_cost_vectors(cost_func, image_type, voi_size, step_size):
         movingfiles = os.listdir(required_folder)
         for movingfile in movingfiles:
             print(f'{subject}, checking file: {movingfile}')
-            global_cost, local_cost = rcf.do_check_coregistration(raw_path+'/'+ref_file, required_folder+'/'+movingfile, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)
-            cost_file = movingfile[0:-4]+f'.{cost_func}.data'       
-            np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.6f')
+            cost_file = movingfile[0:-4]+f'.{cost_func}.data'
+            
+            if os.path.exists(cost_folder+'/'+cost_file) and os.path.getsize(cost_folder+'/'+cost_file) > 0:
+                print(f'cost values were already computed at {cost_file}')
+            else:
+                global_cost, local_cost = rcf.do_check_coregistration(raw_path+'/'+ref_file, required_folder+'/'+movingfile, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)
+                np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.6f')
 
-def generate_test_images(img_type, reg_type, voi_size, step_size, no_of_test_images):
+def generate_test_images(datapath, subject, img_type, reg_type, voi_size, step_size, no_of_test_images):
     ''' generating test images for both align and affine for all kinds of structural scans'''
     
     mat_path = datapath+'/'+subject+'/mat'
@@ -164,10 +176,18 @@ def generate_test_images(img_type, reg_type, voi_size, step_size, no_of_test_ima
                 
                 mat_modified = dctm.compose(scales_new, trans_new, rots_new, origin = None)
                 #print(mat_orig - mat_modified)
-                np.savetxt(test_mat_path+'/'+testfile, mat_modified, fmt = '%10.19f')
-                naf.doApplyXFM(raw_path+'/'+infile, test_mat_path+'/'+testfile, ref, test_imgs_path+'/'+outfile, 'spline', img_type)
+                
+                if os.path.exists(test_mat_path+'/'+testfile):
+                    print(f'test mat was already generated, {testfile}')
+                else:
+                    np.savetxt(test_mat_path+'/'+testfile, mat_modified, fmt = '%10.19f')
+                    
+                if os.path.exists(test_imgs_path+'/'+outfile):
+                    print(f'test image was already generated, {outfile}')
+                else:
+                    naf.doApplyXFM(raw_path+'/'+infile, test_mat_path+'/'+testfile, ref, test_imgs_path+'/'+outfile, 'spline', img_type)
             
-def compute_test_cost_vectors(reg_type, cost_func, image_type, voi_size, step_size):
+def compute_test_cost_vectors(datapath, subject, reg_type, cost_func, image_type, voi_size, step_size):
     ''' computes cost vector for given combination of cost and registration type'''
     
     print(f'doing for {reg_type} and cost {cost_func}\n')
@@ -198,25 +218,43 @@ def compute_test_cost_vectors(reg_type, cost_func, image_type, voi_size, step_si
         movingfiles = os.listdir(required_folder)
         for movingfile in movingfiles:
             print(f'{subject}, checking file: {movingfile}')
-            global_cost, local_cost = rcf.do_check_registration(refpath, required_folder+'/'+movingfile, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)
-            cost_file = movingfile[0:-4]+f'.{cost_func}.data'       
-            np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.6f')
+            cost_file = movingfile[0:-4]+f'.{cost_func}.data'
+            
+            if os.path.exists(cost_folder+'/'+cost_file) and os.path.getsize(cost_folder+'/'+cost_file) > 0:
+                print(f'cost values were already computed at {cost_file}')
+            else:
+                global_cost, local_cost = rcf.do_check_registration(refpath, required_folder+'/'+movingfile, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)
+                np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.6f')
 
-image_types = ['hrT1', 'hrT2', 'hrFLAIR']
-costs = ['ncc', 'nmi', 'cor']
-reg_types = ['align', 'mni']
+def main(data_dir, subject):
+    '''
+    Parameters
+    ----------
+    data_dir : str
+        string representing the data directory.
+    subject : str
+        subject ID.
 
-# VOI size and step size for local cost computation
-voi_size = 3
-step_size = 3 # stride
+    Returns
+    -------
+    test transformation matrics, test images and computed cost values on test images.
+    
+    '''
+    image_types = ['hrT1', 'hrT2', 'hrFLAIR']
+    costs = ['ncc', 'nmi', 'cor']
+    reg_types = ['align', 'mni']
+    
+    # VOI size and step size for local cost computation
+    voi_size = 3
+    step_size = 3 # stride
 
-for image_type in image_types:
-    for reg_type in reg_types:
-        # generating test images for each img_type
-        generate_test_images(image_type, reg_type, voi_size, step_size, no_of_test_images = 10) # generate test images for each subject
-        for cost in costs:
-            # computing cost for test images (T1, T2 and FLAIR)
-            compute_test_cost_vectors(reg_type, cost, image_type, voi_size, step_size)
+    for image_type in image_types:
+        for reg_type in reg_types:
+            # generating test images for each img_type
+            generate_test_images(data_dir, subject, image_type, reg_type, voi_size, step_size, no_of_test_images = 5) # generate test images for each subject
+            for cost in costs:
+                # computing cost for test images (T1, T2 and FLAIR)
+                compute_test_cost_vectors(data_dir, subject, reg_type, cost, image_type, voi_size, step_size)
             
 # for image_type in image_types[1:]:
 #     # genrating test images for co-reg of T2/FLAIR brain to T1 brain
