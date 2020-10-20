@@ -207,7 +207,9 @@ def classifier_accuracy(model, X_train, X_test, y_train, y_test):
     #return model.score(X_test, y_test), metrics.roc_auc_score(y_test, model.predict_proba(X_test)[:,1])
     #precision, recall, thresholds = metrics.precision_recall_curve(y_test, model.predict_proba(X_test)[:,1])
     #print(f'area under PR curve is {metrics.auc(recall, precision)}')
-    return metrics.f1_score(y_test, model.predict(X_test)), metrics.roc_auc_score(y_test, model.predict_proba(X_test)[:,1])      
+    #print(X_test)
+    #print(y_test-model.predict(X_test))
+    return metrics.f1_score(y_test, model.predict(X_test)), metrics.roc_auc_score(y_test, model.predict_proba(X_test)[:,1]), model      
 
 def combinational_cost(data1, data2, reg_type, image_tag, no_of_folds):
     '''
@@ -218,7 +220,7 @@ def combinational_cost(data1, data2, reg_type, image_tag, no_of_folds):
     data2 : arrays
         matrix of all costs of group2 (abnormal). Each individual cost (feature) should be arrnaged as a column
     reg_type : str
-        registration type, either rigid (6dof) or affine (12dof), or it could be non-linear.
+        registration type, either rigid (6-dof) or affine (12-dof), or it could be non-linear.
     no_of_folds : int
         specify number of folds for nested cross-validation
 
@@ -232,13 +234,14 @@ def combinational_cost(data1, data2, reg_type, image_tag, no_of_folds):
     # transposing and creating labels for data1    
     X_normal = np.transpose(data1) # to make each feature into a column
     x_normal_label = np.zeros(len(X_normal))
-    
+    print(f'number of correctly aligned images are {len(x_normal_label)}')
     # transposing and creating labels for data2
-    if False:    
+    if True:    
         X_misaligned = np.transpose(data2)[:np.shape(X_normal)[0], :]
     else:
         X_misaligned = np.transpose(data2)
     x_misaligned_label = np.ones(len(X_misaligned))
+    print(f'number of misaligned images are {len(x_misaligned_label)}')
     
     # combining data1 and data2 and the corresponding labels    
     X = np.concatenate((X_normal, X_misaligned))
@@ -279,49 +282,58 @@ def combinational_cost(data1, data2, reg_type, image_tag, no_of_folds):
     
         # 1. Linear Discriminant Analysis Classifier
         lda = LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1)
-        scores_lda.append(classifier_accuracy(lda, X_train, X_test, y_train, y_test)[0]) # Accuracy
-        auc_lda.append(classifier_accuracy(lda, X_train, X_test, y_train, y_test)[1]) # AUC
+        score_lda, roc_auc_lda, model_lda = classifier_accuracy(lda, X_train, X_test, y_train, y_test)
+        scores_lda.append(score_lda) # F1-score
+        auc_lda.append(roc_auc_lda) # AUC
         
         # 1a. Quadratic Discriminant Analysis Classifier
         qda = QDA()
-        scores_qda.append(classifier_accuracy(qda, X_train, X_test, y_train, y_test)[0])
-        auc_qda.append(classifier_accuracy(qda, X_train, X_test, y_train, y_test)[1])
+        score_qda, roc_auc_qda, model_qda = classifier_accuracy(qda, X_train, X_test, y_train, y_test)
+        scores_qda.append(score_qda)
+        auc_qda.append(roc_auc_qda)
         
         # 2. Random Forest Classifier (it could be done in LDA transformed space if you have large number of features)
         rfc = RandomForestClassifier(criterion = 'gini', n_estimators = 100)
-        scores_rfc.append(classifier_accuracy(rfc, X_train, X_test, y_train, y_test)[0])
-        auc_rfc.append(classifier_accuracy(rfc, X_train, X_test, y_train, y_test)[1])
+        score_rfc, roc_auc_rfc, model_rfc = classifier_accuracy(rfc, X_train, X_test, y_train, y_test)
+        scores_rfc.append(scores_rfc)
+        auc_rfc.append(roc_auc_rfc)
         
         # 3. Support Vector Machine Classifier
         svc = SVC(kernel = 'linear', gamma = 'scale', probability = True)
-        scores_svm.append(classifier_accuracy(svc, X_train, X_test, y_train, y_test)[0])
-        auc_svm.append(classifier_accuracy(svc, X_train, X_test, y_train, y_test)[1])
+        score_svm, roc_auc_svm, model_svm = classifier_accuracy(svc, X_train, X_test, y_train, y_test)
+        scores_svm.append(score_svm)
+        auc_svm.append(roc_auc_svm)
         #print(svc.coef_)
         
         # 4. Gaussian Naive Bayes Classifier
         gnb = GaussianNB()
-        scores_gnb.append(classifier_accuracy(gnb, X_train, X_test, y_train, y_test)[0])
-        auc_gnb.append(classifier_accuracy(gnb, X_train, X_test, y_train, y_test)[1])
+        score_gnb, roc_auc_gnb, model_gnb = classifier_accuracy(gnb, X_train, X_test, y_train, y_test)
+        scores_gnb.append(score_gnb)
+        auc_gnb.append(roc_auc_gnb)
         
         # 5. k-Nearest Neighbour Classifier
         knn = kNN(n_neighbors = 15)
-        scores_knn.append(classifier_accuracy(knn, X_train, X_test, y_train, y_test)[0])
-        auc_knn.append(classifier_accuracy(knn, X_train, X_test, y_train, y_test)[1])
+        score_knn, roc_auc_knn, model_knn = classifier_accuracy(knn, X_train, X_test, y_train, y_test)
+        scores_knn.append(score_knn)
+        auc_knn.append(roc_auc_knn)
         
         # 6. Logistic Regression Classifier
         lor = LogisticRegression()
-        scores_lor.append(classifier_accuracy(lor, X_train, X_test, y_train, y_test)[0])
-        auc_lor.append(classifier_accuracy(lor, X_train, X_test, y_train, y_test)[1])
+        score_lor, roc_auc_lor, model_lor = classifier_accuracy(lor, X_train, X_test, y_train, y_test)
+        scores_lor.append(score_lor)
+        auc_lor.append(roc_auc_lor)
         
         # 7. Ada Boost Classifier
         ada = AdaBoostClassifier(n_estimators = 100)
-        scores_ada.append(classifier_accuracy(ada, X_train, X_test, y_train, y_test)[0])
-        auc_ada.append(classifier_accuracy(ada, X_train, X_test, y_train, y_test)[1])
+        score_ada, roc_auc_ada, model_ada = classifier_accuracy(ada, X_train, X_test, y_train, y_test)
+        scores_ada.append(score_ada)
+        auc_ada.append(roc_auc_ada)
         
         # 7a. Gradient Boosting Classifier
         gra = GradientBoostingClassifier(random_state = 0)
-        scores_gra.append(classifier_accuracy(gra, X_train, X_test, y_train, y_test)[0])
-        auc_gra.append(classifier_accuracy(gra, X_train, X_test, y_train, y_test)[1])
+        score_gra, roc_auc_gra, model_gra = classifier_accuracy(gra, X_train, X_test, y_train, y_test)
+        scores_gra.append(score_gra)
+        auc_gra.append(roc_auc_gra)
         
         # 8. Arteficial Neural Network (Deep Learning)
         # model_ann = tf.keras.models.Sequential()
@@ -355,14 +367,14 @@ def combinational_cost(data1, data2, reg_type, image_tag, no_of_folds):
     
     # saving the trained model, e.g. shown for saving ada boost classifier model and minmax scaling model
     pickle.dump(scale, open(save_model+'/'+'scale_'+reg_type+image_tag, 'wb'))
-    pickle.dump(lda, open(save_model+'/'+'lda_'+reg_type+image_tag, 'wb'))
-    pickle.dump(qda, open(save_model+'/'+'qda_'+reg_type+image_tag, 'wb'))
-    pickle.dump(rfc, open(save_model+'/'+'rfc_'+reg_type+image_tag, 'wb'))
-    pickle.dump(svc, open(save_model+'/'+'svm_'+reg_type+image_tag, 'wb'))
-    pickle.dump(gnb, open(save_model+'/'+'gnb_'+reg_type+image_tag, 'wb'))
-    pickle.dump(knn, open(save_model+'/'+'knn_'+reg_type+image_tag, 'wb'))
-    pickle.dump(lor, open(save_model+'/'+'lor_'+reg_type+image_tag, 'wb'))
-    pickle.dump(ada, open(save_model+'/'+'ada_boost_'+reg_type+image_tag, 'wb'))
+    pickle.dump(model_lda, open(save_model+'/'+'lda_'+reg_type+image_tag, 'wb'))
+    pickle.dump(model_qda, open(save_model+'/'+'qda_'+reg_type+image_tag, 'wb'))
+    pickle.dump(model_rfc, open(save_model+'/'+'rfc_'+reg_type+image_tag, 'wb'))
+    pickle.dump(model_svm, open(save_model+'/'+'svm_'+reg_type+image_tag, 'wb'))
+    pickle.dump(model_gnb, open(save_model+'/'+'gnb_'+reg_type+image_tag, 'wb'))
+    pickle.dump(model_knn, open(save_model+'/'+'knn_'+reg_type+image_tag, 'wb'))
+    pickle.dump(model_lor, open(save_model+'/'+'lor_'+reg_type+image_tag, 'wb'))
+    pickle.dump(model_ada, open(save_model+'/'+'ada_boost_'+reg_type+image_tag, 'wb'))
     # pickle.load method could be used to load the model for later use and predict method of the seved model to categorize new cases
     
     # plotting ROC curve for Sensitivity/Specificity all above classifiers
