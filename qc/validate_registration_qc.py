@@ -7,7 +7,7 @@ import numpy as np
 import registration_cost_function as rcf
 
 refpath = "/home/tummala/mri/tools/fsl/data/standard" # FSL template
-data_path = "/home/tummala/data/ABIDE-failed-mni"
+data_path = "/home/tummala/data/HCP-100re"
 
 ml_models_path = '/home/tummala/mri/ml_classifier_models_checking_reg'
 
@@ -24,7 +24,7 @@ def validate_reg(data_path, subject, tag):
         scale = pickle.load(open(ml_models_path+'/scale_alignT1', 'rb'))
         
         # load classifier model for rigid
-        c_rigid = pickle.load(open(ml_models_path+'/lda_alignT1', 'rb'))
+        c_rigid = pickle.load(open(ml_models_path+'/rfc_alignT1', 'rb'))
     elif tag == 'mni':
         rigid_path = os.path.join(data_path, subject, 'mni')
         image_tag = 'mni.nii'
@@ -32,7 +32,7 @@ def validate_reg(data_path, subject, tag):
         scale = pickle.load(open(ml_models_path+'/scale_mniT1', 'rb'))
         
         # load classifier model for affine
-        c_rigid = pickle.load(open(ml_models_path+'/lda_mniT1', 'rb'))
+        c_rigid = pickle.load(open(ml_models_path+'/rfc_mniT1', 'rb'))
         
     if os.path.exists(rigid_path):
         for image in os.listdir(rigid_path):
@@ -42,7 +42,8 @@ def validate_reg(data_path, subject, tag):
                 for cost in costs:
                     _,local_cost = rcf.do_check_registration(refpath, rigid_path+'/'+image, cost, voi_size = 3, step_size = 3, masking = True, measure_global = False, measure_local = True)
                     cost_values.append(local_cost)
-                    
+                
+                print(cost_values)
                 cost_values_scaled = scale.transform(np.reshape(np.array(cost_values), (1,3)))
                 if c_rigid.predict(cost_values_scaled):
                     print(f'problem with {tag} registration of {image} for {subject}')

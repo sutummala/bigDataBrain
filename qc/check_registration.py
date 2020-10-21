@@ -236,7 +236,7 @@ def combinational_cost(data1, data2, reg_type, image_tag, no_of_folds):
     x_normal_label = np.zeros(len(X_normal))
     print(f'number of correctly aligned images are {len(x_normal_label)}')
     # transposing and creating labels for data2
-    if True:    
+    if False:    
         X_misaligned = np.transpose(data2)[:np.shape(X_normal)[0], :]
     else:
         X_misaligned = np.transpose(data2)
@@ -295,7 +295,7 @@ def combinational_cost(data1, data2, reg_type, image_tag, no_of_folds):
         # 2. Random Forest Classifier (it could be done in LDA transformed space if you have large number of features)
         rfc = RandomForestClassifier(criterion = 'gini', n_estimators = 100)
         score_rfc, roc_auc_rfc, model_rfc = classifier_accuracy(rfc, X_train, X_test, y_train, y_test)
-        scores_rfc.append(scores_rfc)
+        scores_rfc.append(score_rfc)
         auc_rfc.append(roc_auc_rfc)
         
         # 3. Support Vector Machine Classifier
