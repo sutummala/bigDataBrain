@@ -6,7 +6,7 @@ import os
 import all_plots as ap
 import numpy as np
 from sklearn import metrics
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.model_selection import StratifiedKFold, RepeatedStratifiedKFold, cross_val_score
 from sklearn.preprocessing import MinMaxScaler, MaxAbsScaler
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QDA
@@ -20,8 +20,8 @@ import tensorflow as tf
 import pickle
 
 plt.rcParams.update({'font.size': 22})
-subpath1 = "/home/tummala/data/ABIDEre"
-subpath2 = subpath1
+subpath1 = '/media/tummala/New Volume/Tummala/Research/ABIDE-crossval'
+subpath2 = '/media/tummala/New Volume/Tummala/Research/ABIDE-validate'
 
 voi_size = 3
 step_size = 3 # stride
@@ -204,21 +204,25 @@ def classifier_accuracy(model, X_train, X_test, y_train, y_test):
     
     model.fit(X_train, y_train)
     #print(f'F1-score is {metrics.f1_score(y_test, model.predict(X_test))}/n')
-    #return model.score(X_test, y_test), metrics.roc_auc_score(y_test, model.predict_proba(X_test)[:,1])
+    #return model.score(X_test, y_test), metrics.roc_auc_score(y_test, model.predict_proba(X_test)[:,1]), model
     #precision, recall, thresholds = metrics.precision_recall_curve(y_test, model.predict_proba(X_test)[:,1])
     #print(f'area under PR curve is {metrics.auc(recall, precision)}')
     #print(X_test)
     #print(y_test-model.predict(X_test))
     return metrics.f1_score(y_test, model.predict(X_test)), metrics.roc_auc_score(y_test, model.predict_proba(X_test)[:,1]), model      
 
-def combinational_cost(data1, data2, reg_type, image_tag, no_of_folds):
+def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_folds, number_rep):
     '''
     Parameters
     ----------
     data1 : arrays
-        matrix of all costs of group1 (normal). Each individual cost (feature) should be arrnaged as a column
+        matrix of all costs of group1 (normal) for training/testing. Each individual cost (feature) should be arranged as a column
     data2 : arrays
-        matrix of all costs of group2 (abnormal). Each individual cost (feature) should be arrnaged as a column
+        matrix of all costs of group2 (abnormal) for training/testing. Each individual cost (feature) should be arranged as a column
+    data3 : arrays
+        matrix of all costs of group1 (normal) for validation. Each individual cost (feature) should be arranged as a column
+    data4 : arrays
+        matrix of all costs of group2 (abnormal) for validation. Each individual cost (feature) should be arranged as a column
     reg_type : str
         registration type, either rigid (6-dof) or affine (12-dof), or it could be non-linear.
     no_of_folds : int
@@ -227,21 +231,33 @@ def combinational_cost(data1, data2, reg_type, image_tag, no_of_folds):
     Returns
     -------
     accuracy and AUC of the combinational cost function based on different supervised-learning classifiers for identifying mis-registrations.
-
     '''
     print(f'classifier comparison for {image_tag}-{reg_type}--------------')
     
     # transposing and creating labels for data1    
     X_normal = np.transpose(data1) # to make each feature into a column
     x_normal_label = np.zeros(len(X_normal))
-    print(f'number of correctly aligned images are {len(x_normal_label)}')
+    print(f'number of correctly aligned images for training/testing are {len(x_normal_label)}')
+    
     # transposing and creating labels for data2
     if False:    
         X_misaligned = np.transpose(data2)[:np.shape(X_normal)[0], :]
     else:
-        X_misaligned = np.transpose(data2)
+        X_misaligned = np.transpose(data2)    
     x_misaligned_label = np.ones(len(X_misaligned))
-    print(f'number of misaligned images are {len(x_misaligned_label)}')
+    print(f'number of misaligned images for training/testing are {len(x_misaligned_label)}')
+    
+    # data for validation, combining data3 and data4 
+    X_normal_val = np.transpose(data3)
+    x_normal_val_label = np.zeros(len(X_normal_val))
+    print(f'number of correctly aligned images for validation are {len(x_normal_val_label)}')
+    
+    X_misaligned_val = np.transpose(data4)
+    x_misaligned_val_label = np.ones(len(X_misaligned_val))
+    print(f'number of misaligned images for validation are {len(x_misaligned_val_label)}')
+    
+    X_val = np.concatenate((X_normal_val, X_misaligned_val))
+    y_val = np.concatenate((x_normal_val_label, x_misaligned_val_label))
     
     # combining data1 and data2 and the corresponding labels    
     X = np.concatenate((X_normal, X_misaligned))
@@ -250,9 +266,10 @@ def combinational_cost(data1, data2, reg_type, image_tag, no_of_folds):
     # scaling the costs (features) to make sure the ranges of individual features are same to avoid the effect of features that have relatively large values. It may not be necessary in this case as all these 3 costs lie between 0 and 1  
     scale = MaxAbsScaler()
     X = scale.fit_transform(X)
+    X_val = scale.transform(X_val)
     
-    # K-fold cross validation, n_splits specifies the number of folds
-    folds = StratifiedKFold(n_splits = no_of_folds)
+    # Repeated K-fold cross validation, n_splits specifies the number of folds, n_repeats specifies the no.of repetetions
+    folds = RepeatedStratifiedKFold(n_splits = no_of_folds, n_repeats = number_rep)
     
     scores_lda = []
     scores_qda = [] 
@@ -349,15 +366,15 @@ def combinational_cost(data1, data2, reg_type, image_tag, no_of_folds):
         
     # Note: 'cross_val_score' method from sklearn could be used directly on the classifier model to avoid the above for loop. Further, f1-score could be used instead of accuracy metric if number of positive samples (mis-aligned) are low.
     
-    print(f'accuracy using LDA classifier for {image_tag}-{reg_type} is: {np.average(scores_lda)}, AUC is: {np.average(auc_lda)}\n')
-    print(f'accuracy using QDA classifier for {image_tag}-{reg_type} is: {np.average(scores_qda)}, AUC is: {np.average(auc_qda)}\n')
-    print(f'accuracy using RandomForest classifier for {image_tag}-{reg_type} is: {np.average(scores_rfc)}, AUC is: {np.average(auc_rfc)}\n')
+    print(f'accuracy using LDA classifier for {image_tag}-{reg_type} is: {np.average(scores_lda)}, AUC is: {np.average(auc_lda)}')
+    #print(f'accuracy using QDA classifier for {image_tag}-{reg_type} is: {np.average(scores_qda)}, AUC is: {np.average(auc_qda)}\n')
+    print(f'accuracy using RandomForest classifier for {image_tag}-{reg_type} is: {np.average(scores_rfc)}, AUC is: {np.average(auc_rfc)}')
     print(f'accuracy using SVM classifier for {image_tag}-{reg_type} is: {np.average(scores_svm)}, AUC is: {np.average(auc_svm)}\n')
-    print(f'accuracy using Naive Bayes classifier for {image_tag}-{reg_type} is: {np.average(scores_gnb)}, AUC is: {np.average(auc_gnb)}\n')
-    print(f'accuracy using kNN classifier for {image_tag}-{reg_type} is: {np.average(scores_knn)}, AUC is: {np.average(auc_knn)}\n')
-    print(f'accuracy using Logistic Regression classifier for {image_tag}-{reg_type} is: {np.average(scores_lor)}, AUC is: {np.average(auc_lor)}\n')
-    print(f'accuracy using Ada Boost classifier for {image_tag}-{reg_type} is: {np.average(scores_ada)}, AUC is: {np.average(auc_ada)}\n')
-    print(f'accuracy using Gradient boosting classifier for {image_tag}-{reg_type} is: {np.average(scores_gra)}, AUC is: {np.average(auc_gra)}\n')
+    print(f'accuracy using Naive Bayes classifier for {image_tag}-{reg_type} is: {np.average(scores_gnb)}, AUC is: {np.average(auc_gnb)}')
+    print(f'accuracy using kNN classifier for {image_tag}-{reg_type} is: {np.average(scores_knn)}, AUC is: {np.average(auc_knn)}')
+    #print(f'accuracy using Logistic Regression classifier for {image_tag}-{reg_type} is: {np.average(scores_lor)}, AUC is: {np.average(auc_lor)}\n')
+    print(f'accuracy using Ada Boost classifier for {image_tag}-{reg_type} is: {np.average(scores_ada)}, AUC is: {np.average(auc_ada)}')
+    #print(f'accuracy using Gradient boosting classifier for {image_tag}-{reg_type} is: {np.average(scores_gra)}, AUC is: {np.average(auc_gra)}\n')
     #print(f'accuracy using ANN for {image_tag}-{reg_type} is: {np.average(scores_ann)}, AUC is: {np.average(auc_ann)}\n')
     
     save_model = '/home/tummala/mri/ml_classifier_models_checking_reg'
@@ -367,38 +384,44 @@ def combinational_cost(data1, data2, reg_type, image_tag, no_of_folds):
     
     # saving the trained model, e.g. shown for saving ada boost classifier model and minmax scaling model
     pickle.dump(scale, open(save_model+'/'+'scale_'+reg_type+image_tag, 'wb'))
-    pickle.dump(model_lda, open(save_model+'/'+'lda_'+reg_type+image_tag, 'wb'))
-    pickle.dump(model_qda, open(save_model+'/'+'qda_'+reg_type+image_tag, 'wb'))
-    pickle.dump(model_rfc, open(save_model+'/'+'rfc_'+reg_type+image_tag, 'wb'))
-    pickle.dump(model_svm, open(save_model+'/'+'svm_'+reg_type+image_tag, 'wb'))
-    pickle.dump(model_gnb, open(save_model+'/'+'gnb_'+reg_type+image_tag, 'wb'))
-    pickle.dump(model_knn, open(save_model+'/'+'knn_'+reg_type+image_tag, 'wb'))
-    pickle.dump(model_lor, open(save_model+'/'+'lor_'+reg_type+image_tag, 'wb'))
-    pickle.dump(model_ada, open(save_model+'/'+'ada_boost_'+reg_type+image_tag, 'wb'))
+    pickle.dump(LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1).fit(X, y), open(save_model+'/'+'lda_'+reg_type+image_tag, 'wb'))
+    pickle.dump(QDA().fit(X, y), open(save_model+'/'+'qda_'+reg_type+image_tag, 'wb'))
+    pickle.dump(RandomForestClassifier(criterion = 'gini', n_estimators = 100).fit(X, y), open(save_model+'/'+'rfc_'+reg_type+image_tag, 'wb'))
+    pickle.dump(SVC(kernel = 'linear', gamma = 'scale', probability = True).fit(X, y), open(save_model+'/'+'svm_'+reg_type+image_tag, 'wb'))
+    pickle.dump(GaussianNB().fit(X, y), open(save_model+'/'+'gnb_'+reg_type+image_tag, 'wb'))
+    pickle.dump(kNN(n_neighbors = 15).fit(X, y), open(save_model+'/'+'knn_'+reg_type+image_tag, 'wb'))
+    pickle.dump(LogisticRegression().fit(X, y), open(save_model+'/'+'lor_'+reg_type+image_tag, 'wb'))
+    pickle.dump(AdaBoostClassifier(n_estimators = 100).fit(X, y), open(save_model+'/'+'ada_boost_'+reg_type+image_tag, 'wb'))
     # pickle.load method could be used to load the model for later use and predict method of the seved model to categorize new cases
     
     # plotting ROC curve for Sensitivity/Specificity all above classifiers
-    if False:
-        lda_disp = metrics.plot_roc_curve(lda, X_test, y_test)
-        qda_disp = metrics.plot_roc_curve(qda, X_test, y_test, ax = lda_disp.ax_)
-        svm_disp = metrics.plot_roc_curve(svc, X_test, y_test, ax = lda_disp.ax_)
+    if True:
+        lda_disp = metrics.plot_roc_curve(LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1).fit(X, y), X_val, y_val, drop_intermediate = False)
+        print('F1-score for LDA', {metrics.f1_score(y_val, LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1).fit(X, y).predict(X_val))})
+        #qda_disp = metrics.plot_roc_curve(qda, X_test, y_test, ax = lda_disp.ax_)
+        svm_disp = metrics.plot_roc_curve(SVC(kernel = 'linear', gamma = 'scale', probability = True).fit(X, y), X_val, y_val, ax = lda_disp.ax_)
+        print('F1-score for SVM', {metrics.f1_score(y_val, SVC(kernel = 'linear', gamma = 'scale', probability = True).fit(X, y).predict(X_val))})
         #nsvm_disp = metrics.plot_roc_curve(nsvm, X_test, y_test, ax = lda_disp.ax_)
-        gnb_disp = metrics.plot_roc_curve(gnb, X_test, y_test, ax = lda_disp.ax_)
-        rfc_disp = metrics.plot_roc_curve(rfc, X_test, y_test, ax = lda_disp.ax_)
-        ada_disp = metrics.plot_roc_curve(ada, X_test, y_test, ax = lda_disp.ax_)
-        knn_disp = metrics.plot_roc_curve(knn, X_test, y_test, ax = lda_disp.ax_)
+        gnb_disp = metrics.plot_roc_curve(GaussianNB().fit(X, y), X_val, y_val, ax = lda_disp.ax_)
+        print('F1-score for GNB', {metrics.f1_score(y_val, GaussianNB().fit(X, y).predict(X_val))})
+        knn_disp = metrics.plot_roc_curve(kNN(n_neighbors = 15).fit(X, y), X_val, y_val, ax = lda_disp.ax_)
+        print('F1-score for kNN', {metrics.f1_score(y_val, kNN(n_neighbors = 15).fit(X, y).predict(X_val))})
+        rfc_disp = metrics.plot_roc_curve(RandomForestClassifier(criterion = 'gini', n_estimators = 100).fit(X, y), X_val, y_val, ax = lda_disp.ax_)
+        print('F1-score for RFC', {metrics.f1_score(y_val, RandomForestClassifier(criterion = 'gini', n_estimators = 100).fit(X, y).predict(X_val))})
+        ada_disp = metrics.plot_roc_curve(AdaBoostClassifier(n_estimators = 100).fit(X, y), X_val, y_val, ax = lda_disp.ax_)
+        print('F1-score for Ada Boost', {metrics.f1_score(y_val, AdaBoostClassifier(n_estimators = 100).fit(X, y).predict(X_val))})
         #knn_disp.figure_.suptitle(f"ROC curve comparison {image_tag}-{reg_type}")
         
     # plotting Precision-Recall ROC curve for all above classifiers
     if False:
-        lda_disp = metrics.precision_recall_curve(lda, X_test, y_test)
-        qda_disp = metrics.precision_recall_curve(qda, X_test, y_test, ax = lda_disp.ax_)
-        svm_disp = metrics.precision_recall_curve(svc, X_test, y_test, ax = lda_disp.ax_)
+        lda_disp = metrics.plot_precision_recall_curve(LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1).fit(X, y), X_val, y_val)
+        #qda_disp = metrics.precision_recall_curve(qda, X_test, y_test, ax = lda_disp.ax_)
+        svm_disp = metrics.plot_precision_recall_curve(SVC(kernel = 'linear', gamma = 'scale', probability = True).fit(X, y), X_val, y_val, ax = lda_disp.ax_)
         #nsvm_disp = metrics.plot_roc_curve(nsvm, X_test, y_test, ax = lda_disp.ax_)
-        gnb_disp = metrics.precision_recall_curve(gnb, X_test, y_test, ax = lda_disp.ax_)
-        rfc_disp = metrics.precision_recall_curve(rfc, X_test, y_test, ax = lda_disp.ax_)
-        ada_disp = metrics.precision_recall_curve(ada, X_test, y_test, ax = lda_disp.ax_)
-        knn_disp = metrics.precision_recall_curve(knn, X_test, y_test, ax = lda_disp.ax_)
+        gnb_disp = metrics.plot_precision_recall_curve(GaussianNB().fit(X, y), X_val, y_val, ax = lda_disp.ax_)
+        knn_disp = metrics.plot_precision_recall_curve(kNN(n_neighbors = 15).fit(X, y), X_val, y_val, ax = lda_disp.ax_)
+        rfc_disp = metrics.plot_precision_recall_curve(RandomForestClassifier(criterion = 'gini', n_estimators = 100).fit(X, y), X_val, y_val, ax = lda_disp.ax_)
+        ada_disp = metrics.plot_precision_recall_curve(AdaBoostClassifier(n_estimators = 100).fit(X, y), X_val, y_val, ax = lda_disp.ax_)
         #knn_disp.figure_.suptitle(f"ROC curve comparison {image_tag}-{reg_type}")
 
     # plt.show()
@@ -418,11 +441,15 @@ if __name__ == '__main__':
         combine_cost_vector_T1 = []
         combine_test_cost_vector_T1 = []
         
+        combine_cost_vector_T1_val = []
+        combine_test_cost_vector_T1_val = []
+        
         combine_cost_vector_T2 = []
         combine_test_cost_vector_T2 = []
         
         combine_cost_vector_FLAIR = []
         combine_test_cost_vector_FLAIR = []
+        
         for cost in costs:
             # getting normal values for hrT1, hrT2 and hrFLAIR for bigdata 
             global_cost_vector_bigdata_T1, local_cost_vector_bigdata_T1 = get_cost_vectors(cost, reg_type, subpath1, 'hrT1') # T1 to MNI
@@ -437,6 +464,8 @@ if __name__ == '__main__':
             # HCP-YA
             global_cost_vector_hcpya_T1, local_cost_vector_hcpya_T1 = get_cost_vectors(cost, reg_type, subpath2, 'hrT1') # T1 to MNI
             global_cost_vector_hcpya_T2, local_cost_vector_hcpya_T2 = get_cost_vectors(cost, reg_type, subpath2, 'hrT2') # T2 to MNI
+            
+            combine_cost_vector_T1_val.append(local_cost_vector_hcpya_T1)
             
             if reg_type == 'align':
                 global_cost_vector_hcpya_T2toT1, local_cost_vector_hcpya_T2toT1 = get_coreg_cost_vectors(cost, subpath2, 'hrT2') # T2 brain to T1 brain (only align)
@@ -464,6 +493,7 @@ if __name__ == '__main__':
             global_test_cost_vector_hcpya_T2, local_test_cost_vector_hcpya_T2 = get_test_cost_vectors(cost, reg_type, subpath2, 'hrT2') # T2 to MNI
             global_test_cost_vector_hcpya_T2toT1, local_test_cost_vector_hcpya_T2toT1 = get_coreg_test_cost_vectors(cost, subpath2, 'hrT2') # T2 to T1 (only align)
             
+            combine_test_cost_vector_T1_val.append(local_test_cost_vector_hcpya_T1) # T1 validate data
             combine_test_cost_vector_T2.append(local_test_cost_vector_hcpya_T2) # T2 test data
             
             if False:
@@ -490,7 +520,7 @@ if __name__ == '__main__':
             # Computing cut-off point and AUC for normal and test
             print('doing for Big Data\n')
             
-            compute_cutoff_auc(global_cost_vector_bigdata_T1, global_test_cost_vector_bigdata_T1, cost, reg_type, 'hrT1', 'global') # T1 to MNI
+            #compute_cutoff_auc(global_cost_vector_bigdata_T1, global_test_cost_vector_bigdata_T1, cost, reg_type, 'hrT1', 'global') # T1 to MNI
             compute_cutoff_auc(local_cost_vector_bigdata_T1, local_test_cost_vector_bigdata_T1, cost, reg_type, 'hrT1', 'local') # T1 to MNI
             print('----------------------------------------------------------------------------------------------------')
             
@@ -506,8 +536,8 @@ if __name__ == '__main__':
             
             print('doing for HCP-YA\n')
             
-            compute_cutoff_auc(global_cost_vector_hcpya_T1, global_test_cost_vector_hcpya_T1, cost, reg_type, 'hrT1', 'global') # T1 to MNI
-            compute_cutoff_auc(local_cost_vector_hcpya_T1, local_test_cost_vector_hcpya_T1, cost, reg_type, 'hrT1', 'local') # T1 to MNI
+            #compute_cutoff_auc(global_cost_vector_hcpya_T1, global_test_cost_vector_hcpya_T1, cost, reg_type, 'hrT1', 'global') # T1 to MNI
+            #compute_cutoff_auc(local_cost_vector_hcpya_T1, local_test_cost_vector_hcpya_T1, cost, reg_type, 'hrT1', 'local') # T1 to MNI
             print('----------------------------------------------------------------------------------------------------')
             
             #compute_cutoff_auc(global_cost_vector_hcpya_T2, global_test_cost_vector_hcpya_T2, cost, reg_type, 'hrT2', 'global') # T2 to MNI
@@ -520,7 +550,7 @@ if __name__ == '__main__':
                 compute_cutoff_auc(local_cost_vector_hcpya_T2toT1, local_test_cost_vector_hcpya_T2toT1, cost, 'T1', 'hrT2', 'local') # T2 brain to T1 brain
         
         # calling combinational_cost method to design a classifier 
-        combinational_cost(combine_cost_vector_T1, combine_test_cost_vector_T1, reg_type, 'T1', 5) 
+        combinational_cost(combine_cost_vector_T1, combine_test_cost_vector_T1, combine_cost_vector_T1_val, combine_test_cost_vector_T1_val, reg_type, 'T1', 5, 10) 
         #combinational_cost(combine_cost_vector_T2, combine_test_cost_vector_T2, reg_type, 'T2', 5)
         #combinational_cost(combine_cost_vector_FLAIR, combine_test_cost_vector_FLAIR, reg_type, 'FLAIR', 5)
         
