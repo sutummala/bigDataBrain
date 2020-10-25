@@ -1,4 +1,4 @@
-# Code created by Sudhakar on April 2020
+# Code created by Sudhakar on April and modified on October 2020
 # Computes cost-function for checking the registration quality
 
 import progressbar
