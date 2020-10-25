@@ -6,6 +6,20 @@ import numpy as np
 import nibabel as nib
 import all_cost_functions as acf
 
+def remove_zeros(ref, moving):
+    '''
+    Parameters
+    ----------
+    ref : int
+        ref voi intensity values
+    moving : int
+        moving voi intensity values.
+    Returns
+    -------
+    ref, moving intensity values with zeros removed
+    '''
+    return ref[np.nonzero(ref)], moving[np.nonzero(moving)] # the no.of zeros would be the same if any since the same mask is used for both
+
 # Computing local similarity values
 def compute_local_similarity(ref_image, moving_image, cost_func, voi_size, step_size):
     '''
@@ -39,6 +53,7 @@ def compute_local_similarity(ref_image, moving_image, cost_func, voi_size, step_
                 moving_voi = moving_image[i*step_size:(i*step_size)+voi_size, j*step_size:(j*step_size)+voi_size, k*step_size:(k*step_size)+voi_size]
                 if all(np.ndarray.flatten(ref_voi) == 0) or all(np.ndarray.flatten(moving_voi) == 0):
                     continue
+                ref_voi, moving_voi = remove_zeros(ref_voi, moving_voi)
                 if cost_func == 'ssd':
                     cost_vector.append(acf.ssd(ref_voi, moving_voi))
                 elif cost_func == 'cc':
@@ -75,7 +90,7 @@ def compute_global_similarity(ref_image, moving_image, cost_func):
     -------
     similarity : float
         return global cost.
-    '''                           
+    '''
     if cost_func == 'ssd':
         # 1. Sum of squared differences(SSD)
         similarity = acf.ssd(ref_image, moving_image)
