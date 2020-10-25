@@ -29,6 +29,23 @@ def get_file_name_and_extension(infile):
     else:
         return main_1, ext_1
     
+def compute_weight(refimage, movingimage):
+    '''
+    Parameters
+    ----------
+    refimage : float
+        volume of interest.
+    movingimage : float
+        volume of interest.
+
+    Returns
+    -------
+    TYPE: float
+        weight value.
+    '''
+    non_zeros = np.max(np.count_nonzero(refimage), np.count_nonzero(movingimage)) # generally, the number of non-zeros are same in both volume of interests. 
+    return weight = 1/(1+(1000*np.exp(-non_zeros)))
+    
 ## cost functions for checking goodness of registraitons
 
 # 1. Sum of squared differences(SSD)
@@ -37,7 +54,7 @@ def ssd(refimage, movingimage):
     if refimage.shape != movingimage.shape:
         print('images shape mismatch')
     else:
-        return np.sum((np.ndarray.flatten(refimage)-np.ndarray.flatten(movingimage))**2)
+        return compute_weight(refimage, movingimage)*np.sum((np.ndarray.flatten(refimage)-np.ndarray.flatten(movingimage))**2)
     
 # 2. Cross Correlation 
 def cc(refimage, movingimage):
@@ -45,7 +62,7 @@ def cc(refimage, movingimage):
     if refimage.shape != movingimage.shape:
         print('images shape mismatch')
     else:
-        return np.sum(np.abs(np.correlate(np.ndarray.flatten(refimage), np.ndarray.flatten(movingimage), 'full')))
+        return compute_weight(refimage, movingimage)*np.sum(np.abs(np.correlate(np.ndarray.flatten(refimage), np.ndarray.flatten(movingimage), 'full')))
 
 # 3. Normalized Cross Correlation (NCC)
 def ncc(refimage, movingimage, cor_type):
@@ -54,9 +71,9 @@ def ncc(refimage, movingimage, cor_type):
         print('images shape mismatch')
     else:
         if cor_type == 'pearson':
-            return np.corrcoef(np.ndarray.flatten(refimage), np.ndarray.flatten(movingimage))[0,1] # pearson's correlation coefficient (this could also be implemented using scipy.stats.pearsonr)
+            return compute_weight(refimage, movingimage)*np.corrcoef(np.ndarray.flatten(refimage), np.ndarray.flatten(movingimage))[0,1] # pearson's correlation coefficient (this could also be implemented using scipy.stats.pearsonr)
         elif cor_type == 'spearman':
-            return scipy.stats.spearmanr(np.ndarray.flatten(refimage), np.ndarray.flatten(movingimage))[0] # spearman correlation coefficient
+            compute_weight(refimage, movingimage)*return scipy.stats.spearmanr(np.ndarray.flatten(refimage), np.ndarray.flatten(movingimage))[0] # spearman correlation coefficient
     
 # Entropy for MI and NMI
 def entropy(hist):
@@ -84,7 +101,7 @@ def mi(refimage, movingimage):
 def nmi(refimage, movingimage):
     
     mutual_info, ent_ref, ent_moving = mi(refimage, movingimage)
-    return mutual_info/((ent_ref + ent_moving)*0.5)
+    return compute_weight(refimage, movingimage)*(mutual_info/((ent_ref + ent_moving)*0.5))
 
 # Correlation Ratio main function
 def correlation_ratio_main(refimage, movingimage):
@@ -111,7 +128,7 @@ def cor(refimage, movingimage):
     if refimage.shape != movingimage.shape:
         print('images shape mismatch')
     else:
-        return correlation_ratio_main(np.ndarray.flatten(refimage), np.ndarray.flatten(movingimage))
+        return compute_weight(refimage, movingimage)*correlation_ratio_main(np.ndarray.flatten(refimage), np.ndarray.flatten(movingimage))
     
 # 7. Entropy of Intensity Differnces (EID)
 def eid(refimage, movingimage):
