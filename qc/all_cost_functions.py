@@ -62,7 +62,7 @@ def cc(refimage, movingimage):
     if refimage.shape != movingimage.shape:
         print('images shape mismatch')
     else:
-        return compute_weight(refimage, movingimage)*np.sum(np.abs(np.correlate(np.ndarray.flatten(refimage), np.ndarray.flatten(movingimage), 'full')))
+        return compute_weight(refimage, movingimage)*np.corrcoef(np.ndarray.flatten(refimage), np.ndarray.flatten(movingimage))[0,1]
 
 # 3. Normalized Cross Correlation (NCC)
 def ncc(refimage, movingimage, cor_type):
