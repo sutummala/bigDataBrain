@@ -138,7 +138,7 @@ def eid(refimage, movingimage):
     else:
         intensity_diff = np.abs(np.ndarray.flatten(refimage) - np.ndarray.flatten(movingimage))
         hist_diff = np.histogram(intensity_diff, bins = 10)[0]
-        return entropy(hist_diff)
+        return compute_weight(refimage, movingimage)*entropy(hist_diff)
     
 ## cost functions for checking image quality
 
