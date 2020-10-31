@@ -53,7 +53,6 @@ def compute_local_similarity(ref_image, moving_image, cost_func, voi_size, step_
                 moving_voi = moving_image[i*step_size:(i*step_size)+voi_size, j*step_size:(j*step_size)+voi_size, k*step_size:(k*step_size)+voi_size]
                 if all(np.ndarray.flatten(ref_voi) == 0) or all(np.ndarray.flatten(moving_voi) == 0):
                     continue
-                ref_voi, moving_voi = remove_zeros(ref_voi, moving_voi)
                 if cost_func == 'ssd':
                     cost_vector.append(acf.ssd(ref_voi, moving_voi))
                 elif cost_func == 'cc':
