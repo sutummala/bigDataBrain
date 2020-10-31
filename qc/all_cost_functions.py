@@ -44,7 +44,7 @@ def compute_weight(refimage, movingimage):
         weight value.
     '''
     non_zeros = np.max(np.count_nonzero(refimage), np.count_nonzero(movingimage)) # generally, the number of non-zeros are same in both volume of interests. 
-    return weight = 1/(1+(1000*np.exp(-non_zeros)))
+    return 1/(1+(1000*np.exp(-non_zeros)))
     
 ## cost functions for checking goodness of registraitons
 
