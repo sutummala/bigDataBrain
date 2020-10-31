@@ -101,7 +101,7 @@ def mi(refimage, movingimage):
 def nmi(refimage, movingimage):
     
     mutual_info, ent_ref, ent_moving = mi(refimage, movingimage)
-    return compute_weight(refimage, movingimage)*(mutual_info/((ent_ref + ent_moving)*0.5))
+    return compute_weight(refimage, movingimage)*(mutual_info/(np.sqrt(ent_ref * ent_moving)))
 
 # Correlation Ratio main function
 def correlation_ratio_main(refimage, movingimage):
