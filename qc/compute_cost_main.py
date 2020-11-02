@@ -9,12 +9,12 @@ import compute_reg_cost_grid as crcg
 import gen_test_images_compute_reg_cost_grid as gticrcg
 
 
-data_dir = "/home/tummala/data/ABIDEre" # Path to the subjects data directory
+data_dir = "/home/tummala/data/test" # Path to the subjects data directory
 subjects = sorted(os.listdir(data_dir)) # Finds subjects in the data directory
 print('Found', len(subjects), 'Subjects\n')
 
 #workers = int(os.environ['SLURM_CPUS_PER_TASK']) # Maximum number of COREs requested (in a single node) in SLURM 
-workers = cpu_count() # this could be cpu_count() [maximum number of cores available in the machine]
+workers = 1 # this could be cpu_count() [maximum number of cores available in the machine]
 print(f'workers are: {workers}\n')
 
 def process_subject(data_dir, subject):
@@ -32,10 +32,10 @@ def process_subject(data_dir, subject):
 
     '''
     # Compute the cost for correctly aligned images
-    #crcg.main(data_dir, subject)
+    crcg.main(data_dir, subject)
     
     # Generate test images for learning ML classifiers
-    gticrcg.main(data_dir, subject)
+    #gticrcg.main(data_dir, subject)
         
 with concurrent.futures.ProcessPoolExecutor(max_workers = workers) as executor:
     executor.map(partial(process_subject, data_dir), subjects)

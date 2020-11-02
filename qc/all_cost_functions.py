@@ -28,7 +28,7 @@ def get_file_name_and_extension(infile):
         return main_2, ext_2+ext_1
     else:
         return main_1, ext_1
-    
+
 def compute_weight(refimage, movingimage):
     '''
     Parameters
@@ -37,15 +37,17 @@ def compute_weight(refimage, movingimage):
         volume of interest.
     movingimage : float
         volume of interest.
-
     Returns
-    -------
+    -------i
     TYPE: float
         weight value.
     '''
-    non_zeros = np.maximum(np.count_nonzero(refimage), np.count_nonzero(movingimage)) # generally, the number of non-zeros are same in both volume of interests. 
-    return 1/(1+(1000*np.exp(-non_zeros)))
+    non_zeros = np.maximum(np.count_nonzero(refimage), np.count_nonzero(movingimage)) # generally, the number of non-zeros are same in both volume of interests.
     
+    weight = 1/(1+(1000*np.exp(-non_zeros))) 
+    
+    return weight
+   
 ## cost functions for checking goodness of registraitons
 
 # 1. Sum of squared differences(SSD)
@@ -73,7 +75,7 @@ def ncc(refimage, movingimage, cor_type):
         if cor_type == 'pearson':
             return compute_weight(refimage, movingimage)*np.corrcoef(np.ndarray.flatten(refimage), np.ndarray.flatten(movingimage))[0,1] # pearson's correlation coefficient (this could also be implemented using scipy.stats.pearsonr)
         elif cor_type == 'spearman':
-            compute_weight(refimage, movingimage)*return scipy.stats.spearmanr(np.ndarray.flatten(refimage), np.ndarray.flatten(movingimage))[0] # spearman correlation coefficient
+            return compute_weight(refimage, movingimage)*scipy.stats.spearmanr(np.ndarray.flatten(refimage), np.ndarray.flatten(movingimage))[0] # spearman correlation coefficient
     
 # Entropy for MI and NMI
 def entropy(hist):
