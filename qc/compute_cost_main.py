@@ -9,12 +9,12 @@ import compute_reg_cost_grid as crcg
 import gen_test_images_compute_reg_cost_grid as gticrcg
 
 
-data_dir = "/home/tummala/data/test" # Path to the subjects data directory
+data_dir = '/media/tummala/New Volume/Tummala/Research/ABIDE-validate' # Path to the subjects data directory
 subjects = sorted(os.listdir(data_dir)) # Finds subjects in the data directory
 print('Found', len(subjects), 'Subjects\n')
 
 #workers = int(os.environ['SLURM_CPUS_PER_TASK']) # Maximum number of COREs requested (in a single node) in SLURM 
-workers = 1 # this could be cpu_count() [maximum number of cores available in the machine]
+workers = cpu_count() # this could be cpu_count() [maximum number of cores available in the machine]
 print(f'workers are: {workers}\n')
 
 def process_subject(data_dir, subject):

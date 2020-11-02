@@ -34,7 +34,9 @@ def compute_cost_vectors(data_dir, subject, reg_type, cost_func, tag, voi_size, 
     -------
     returns global and local cost vectors 
     '''
-
+    
+    recompute =  True # flag if you want to recompute
+    
     if reg_type == 'align':
         required_folder = data_dir+'/'+subject+'/align'
         checking_tag = 'reoriented.align.nii'
@@ -51,7 +53,7 @@ def compute_cost_vectors(data_dir, subject, reg_type, cost_func, tag, voi_size, 
             print(f'{subject}, checking file: {movingfile}')
             cost_file = movingfile[0:-4]+f'.{cost_func}.data'
             
-            if os.path.exists(cost_folder+'/'+cost_file) and os.path.getsize(cost_folder+'/'+cost_file) > 0:
+            if not recompute and os.path.exists(cost_folder+'/'+cost_file) and os.path.getsize(cost_folder+'/'+cost_file) > 0:
                 print(f'cost values were already computed at {cost_file}')
             else:
                 global_cost, local_cost = rcf.do_check_registration(refpath, required_folder+'/'+movingfile, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)
@@ -78,6 +80,8 @@ def compute_coreg_cost_vectors(data_dir, subject, cost_func, tag, voi_size, step
     -------
     returns global and local cost vectors for coregistration of T2/FLAIR to corresponding T1
     '''
+    recompute =  True # flag if you want to recompute
+    
     #print(f'doing cost estimation for registering {tag} brain to hrT1 brain\n')
     required_folder = data_dir+'/'+subject+'/anat'
     checking_tag_ref = 'nu_corr.brain.nii'
@@ -101,7 +105,7 @@ def compute_coreg_cost_vectors(data_dir, subject, cost_func, tag, voi_size, step
         print(f'{subject}, checking files: {movingfile_ref, movingfile_moving}\n')
         cost_file = movingfile_moving[0:-4]+f'.{cost_func}.data'
         
-        if os.path.exists(cost_folder+'/'+cost_file) and os.path.getsize(cost_folder+'/'+cost_file) > 0:
+        if not recompute and os.path.exists(cost_folder+'/'+cost_file) and os.path.getsize(cost_folder+'/'+cost_file) > 0:
             print(f'cost values were already computed at {cost_file}')
         else:
             global_cost, local_cost = rcf.do_check_coregistration(required_folder+'/'+movingfile_ref, required_folder+'/'+movingfile_moving, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)

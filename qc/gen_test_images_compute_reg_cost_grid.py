@@ -93,6 +93,8 @@ def generate_coreg_test_images(datapath, subject, img_type, voi_size, step_size,
 def compute_coreg_test_cost_vectors(datapath, subject, cost_func, image_type, voi_size, step_size):
     ''' computes cost vector for given combination of cost and registration type'''
     
+    recompute = True # flag to recompute the cost values
+    
     print(f'doing for cost {cost_func}\n')
     
     raw_path = datapath+'/'+subject+'/anat'
@@ -115,7 +117,7 @@ def compute_coreg_test_cost_vectors(datapath, subject, cost_func, image_type, vo
             print(f'{subject}, checking file: {movingfile}')
             cost_file = movingfile[0:-4]+f'.{cost_func}.data'
             
-            if os.path.exists(cost_folder+'/'+cost_file) and os.path.getsize(cost_folder+'/'+cost_file) > 0:
+            if not recompute and os.path.exists(cost_folder+'/'+cost_file) and os.path.getsize(cost_folder+'/'+cost_file) > 0:
                 print(f'cost values were already computed at {cost_file}')
             else:
                 global_cost, local_cost = rcf.do_check_coregistration(raw_path+'/'+ref_file, required_folder+'/'+movingfile, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)
@@ -190,6 +192,8 @@ def generate_test_images(datapath, subject, img_type, reg_type, voi_size, step_s
 def compute_test_cost_vectors(datapath, subject, reg_type, cost_func, image_type, voi_size, step_size):
     ''' computes cost vector for given combination of cost and registration type'''
     
+    recompute = True # flag to recompute the stuff if required
+    
     print(f'doing for {reg_type} and cost {cost_func}\n')
     if reg_type == 'align':
         if image_type == 'hrT1':
@@ -220,7 +224,7 @@ def compute_test_cost_vectors(datapath, subject, reg_type, cost_func, image_type
             print(f'{subject}, checking file: {movingfile}')
             cost_file = movingfile[0:-4]+f'.{cost_func}.data'
             
-            if os.path.exists(cost_folder+'/'+cost_file) and os.path.getsize(cost_folder+'/'+cost_file) > 0:
+            if not recompute and os.path.exists(cost_folder+'/'+cost_file) and os.path.getsize(cost_folder+'/'+cost_file) > 0:
                 print(f'cost values were already computed at {cost_file}')
             else:
                 global_cost, local_cost = rcf.do_check_registration(refpath, required_folder+'/'+movingfile, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)
@@ -263,6 +267,6 @@ def main(data_dir, subject):
 #         # computing cost for test images of T2/FLAIR brain aligned to T1 brain
 #         compute_coreg_test_cost_vectors(cost, image_type, voi_size, step_size)
     
-print('done computation\n')
+print('done with computations\n')
        
 
