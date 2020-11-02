@@ -2,4 +2,4 @@ The code is brain structural MRI processing (such as T1-weighted, T2-weighted, F
 
 Several processing interfaces from nipype such as FSL, FreeSurfer, SPM, ANTS and etc. are used for pre-processing. For quality check (QC), python code was developed for different categories of QC.
 
-Code also involves, renaming different files for consistency across different repositories such IXI, HCP and others by following BIDS guidelines.
+Code also involves, renaming different files for consistency across different repositories such as IXI, HCP and others by following BIDS guidelines.
