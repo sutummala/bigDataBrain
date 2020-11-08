@@ -3,6 +3,7 @@
 
 import os
 import tensorflow as tf
+import tensorflow_addons as tfa
 from tensorflow.keras import models, layers
 import nibabel as nib
 import numpy as np
@@ -11,7 +12,7 @@ data_dir = '/Volumes/TUMMALA/Work/Data/ABIDE-validate/' # Path to the subjects d
 subjects = sorted(os.listdir(data_dir)) # list of subject IDs' 
 
 ref_path = "/usr/local/fsl/data/standard" # FSL template
-ref_brain = ref_path+'/MNI152_T1_1mm_brain.nii.gz' # Whole brain MNI
+ref_brain = ref_path+'/MNI152_T1_1mm.nii.gz' # Whole brain MNI
 
 ref_image = nib.load(ref_brain)
 ref_image_data = ref_image.get_fdata()
@@ -19,6 +20,9 @@ ref_image_data = ref_image.get_fdata()
 x, y, z =  np.shape(ref_image_data)
 
 required_ref_voi = ref_image_data[round(x/2)-80:round(x/2)+80, round(y/2)-80:round(y/2)+80, round(z/2)-1:round(z/2)+2]
+
+reference_voi = []
+reference_voi.append(required_ref_voi)
 
 correctly_aligned = []
 mis_aligned = []
@@ -45,17 +49,17 @@ for subject in subjects:
             correctly_aligned.append(np.array(required_slice))
             print(f'correctly-aligned {np.shape(correctly_aligned)}')
             
-    # for test_path_image in test_path_images:
-    #     test_input_image = nib.load(os.path.join(test_path, test_path_image))
-    #     test_input_image_data = input_image.get_fdata()
+    for test_path_image in test_path_images:
+        test_input_image = nib.load(os.path.join(test_path, test_path_image))
+        test_input_image_data = input_image.get_fdata()
         
-    #     x, y, z =  np.shape(test_input_image_data)
-    #     required_slice_test = test_input_image_data[round(x/2)-80:round(x/2)+80, round(y/2)-80:round(y/2)+80, round(z/2)-1:round(z/2)+2]
-    #     #required_slice_test = required_slice_test/np.max(required_slice_test)
+        x, y, z =  np.shape(test_input_image_data)
+        required_slice_test = test_input_image_data[round(x/2)-80:round(x/2)+80, round(y/2)-80:round(y/2)+80, round(z/2)-1:round(z/2)+2]
+        #required_slice_test = required_slice_test/np.max(required_slice_test)
         
-    #     if np.shape(mis_aligned)[0] < np.shape(correctly_aligned)[0]:
-    #         mis_aligned.append(np.array(required_slice_test))
-    #     print(f'mis-aligned {np.shape(mis_aligned)}')
+        if np.shape(mis_aligned)[0] < np.shape(correctly_aligned)[0]:
+            mis_aligned.append(np.array(required_slice_test))
+        print(f'mis-aligned {np.shape(mis_aligned)}')
 
 print('data is ready for deep cnn')
 
@@ -80,45 +84,54 @@ print('data is ready for deep cnn')
 # model.summary()
 # model.compile(optimizer='adam', loss = tf.keras.losses.BinaryCrossentropy(from_logits = True), metrics=['accuracy'])
 
-# y_cor = np.zeros(np.shape(correctly_aligned)[0])
-# y_incor = np.ones(np.shape(mis_aligned)[0])
+y_cor = np.zeros(np.shape(correctly_aligned)[0])
+y_incor = np.ones(np.shape(mis_aligned)[0])
 
-# y = np.concatenate((y_cor, y_incor))
-# X = np.concatenate((correctly_aligned, mis_aligned))
+y_true = np.concatenate((y_cor, y_incor))
+X = np.concatenate((correctly_aligned, mis_aligned))
 
-# y1 = tf.convert_to_tensor(y, dtype = 'int32')
-# X1 = tf.convert_to_tensor(X)
+y1 = tf.convert_to_tensor(y_true, dtype = 'int32')
+X1 = tf.convert_to_tensor(X)
 
 img_shape = np.shape(required_ref_voi)
 
-preprocess_input = tf.keras.applications.mobilenet_v2.preprocess_input
+preprocess_input = tf.keras.applications.vgg16.preprocess_input
 
-base_model = tf.keras.applications.MobileNetV2(input_shape=img_shape,
+base_model = tf.keras.applications.VGG16(input_shape=img_shape,
                                                 include_top=False,
                                                 weights='imagenet')
 base_model.trainable = False
 
-ref_features = base_model(preprocess_input(required_ref_voi))
+ref_features = base_model(preprocess_input(tf.convert_to_tensor(reference_voi)))
+image_features = base_model(preprocess_input(X1))
 
 print(ref_features.shape)
 
-if False:
-    global_average_layer = tf.keras.layers.GlobalAveragePooling2D()
-    prediction_layer = tf.keras.layers.Dense(1)
-    
-    
+global_average_layer = tf.keras.layers.GlobalAveragePooling2D()
+image_features_flat = global_average_layer(image_features)
+ref_features_flat = global_average_layer(ref_features)
+ref_features_flat = tf.keras.backend.repeat_elements(ref_features_flat, rep=np.shape(image_features_flat)[0], axis=0)
+
+print(image_features_flat.shape)
+print(ref_features_flat.shape)
+
+y_pred = tf.linalg.norm(ref_features_flat - image_features_flat, axis=1)
+tfa.losses.contrastive_loss(y_true, y_pred)
+
+if True:
+    prediction_layer = tf.keras.layers.Dense(1, activation = 'sigmoid')
     inputs = tf.keras.Input(shape=img_shape)
     x1 = preprocess_input(inputs)
-    x1 = base_model(x1, training=False)
+    x1 = base_model(x1, training = False)
     x1 = global_average_layer(x1)
     x1 = tf.keras.layers.Dropout(0.2)(x1)
     outputs = prediction_layer(x1)
     model = tf.keras.Model(inputs, outputs)
 
-if False:
+if True:
     base_learning_rate = 0.0001
     model.compile(optimizer=tf.keras.optimizers.Adam(lr=base_learning_rate),
-                  loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
+                  loss=tf.keras.losses.BinaryCrossentropy(from_logits=False),
                   metrics=['accuracy'])
     
     model.summary()
@@ -126,12 +139,13 @@ if False:
     initial_epochs = 10
     
     # loss0, accuracy0 = model.evaluate(X1, y1)
+    #training_data = tf.keras.data.Dataset(X1, y1)
     
-    history = model.fit(X1, y1,
+    history = model.fit(X1, y1, batch_size = 4,
                         epochs = initial_epochs,
                         validation_data = None)
 
-if False:
+if True:
     base_model.trainable = True
     
     # Let's take a look to see how many layers are in the base model
@@ -153,7 +167,7 @@ if False:
     fine_tune_epochs = 10
     total_epochs =  initial_epochs + fine_tune_epochs
     
-    history_fine = model.fit(X1, y1,
+    history_fine = model.fit(X1, y1, batch_size = 4,
                              epochs=total_epochs,
                              initial_epoch = history.epoch[-1],
                              validation_data = None)
