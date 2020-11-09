@@ -21,7 +21,8 @@ import pickle
 
 plt.rcParams.update({'font.size': 22})
 subpath1 = '/media/tummala/New Volume/Tummala/Research/ABIDE-crossval'
-subpath2 = '/media/tummala/New Volume/Tummala/Research/ABIDE-validate'
+#subpath2 = '/media/tummala/New Volume/Tummala/Research/ABIDE-validate'
+subpath2 = '/home/tummala/data/HCP-100re'
 
 voi_size = 3
 step_size = 3 # stride
@@ -239,8 +240,9 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
     x_normal_label = np.zeros(len(X_normal))
     print(f'number of correctly aligned images for training/testing are {len(x_normal_label)}')
     
+    balance_data = True
     # transposing and creating labels for data2
-    if False:    
+    if balance_data:    
         X_misaligned = np.transpose(data2)[:np.shape(X_normal)[0], :]
     else:
         X_misaligned = np.transpose(data2)    
@@ -252,7 +254,10 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
     x_normal_val_label = np.zeros(len(X_normal_val))
     print(f'number of correctly aligned images for validation are {len(x_normal_val_label)}')
     
-    X_misaligned_val = np.transpose(data4)
+    if balance_data:  
+        X_misaligned_val = np.transpose(data4)[:np.shape(X_normal_val)[0], :]
+    else:
+        X_misaligned_val = np.transpose(data4)
     x_misaligned_val_label = np.ones(len(X_misaligned_val))
     print(f'number of misaligned images for validation are {len(x_misaligned_val_label)}')
     
@@ -369,7 +374,7 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
     print(f'accuracy using LDA classifier for {image_tag}-{reg_type} is: {np.average(scores_lda)}, AUC is: {np.average(auc_lda)}')
     #print(f'accuracy using QDA classifier for {image_tag}-{reg_type} is: {np.average(scores_qda)}, AUC is: {np.average(auc_qda)}\n')
     print(f'accuracy using RandomForest classifier for {image_tag}-{reg_type} is: {np.average(scores_rfc)}, AUC is: {np.average(auc_rfc)}')
-    print(f'accuracy using SVM classifier for {image_tag}-{reg_type} is: {np.average(scores_svm)}, AUC is: {np.average(auc_svm)}\n')
+    print(f'accuracy using SVM classifier for {image_tag}-{reg_type} is: {np.average(scores_svm)}, AUC is: {np.average(auc_svm)}')
     print(f'accuracy using Naive Bayes classifier for {image_tag}-{reg_type} is: {np.average(scores_gnb)}, AUC is: {np.average(auc_gnb)}')
     print(f'accuracy using kNN classifier for {image_tag}-{reg_type} is: {np.average(scores_knn)}, AUC is: {np.average(auc_knn)}')
     #print(f'accuracy using Logistic Regression classifier for {image_tag}-{reg_type} is: {np.average(scores_lor)}, AUC is: {np.average(auc_lor)}\n')
@@ -413,7 +418,7 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
         #knn_disp.figure_.suptitle(f"ROC curve comparison {image_tag}-{reg_type}")
         
     # plotting Precision-Recall ROC curve for all above classifiers
-    if False:
+    if True:
         lda_disp = metrics.plot_precision_recall_curve(LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1).fit(X, y), X_val, y_val)
         #qda_disp = metrics.precision_recall_curve(qda, X_test, y_test, ax = lda_disp.ax_)
         svm_disp = metrics.plot_precision_recall_curve(SVC(kernel = 'linear', gamma = 'scale', probability = True).fit(X, y), X_val, y_val, ax = lda_disp.ax_)
@@ -550,7 +555,7 @@ if __name__ == '__main__':
                 compute_cutoff_auc(local_cost_vector_hcpya_T2toT1, local_test_cost_vector_hcpya_T2toT1, cost, 'T1', 'hrT2', 'local') # T2 brain to T1 brain
         
         # calling combinational_cost method to design a classifier 
-        combinational_cost(combine_cost_vector_T1, combine_test_cost_vector_T1, combine_cost_vector_T1_val, combine_test_cost_vector_T1_val, reg_type, 'T1', 5, 10) 
+        combinational_cost(combine_cost_vector_T1, combine_test_cost_vector_T1, combine_cost_vector_T1_val, combine_test_cost_vector_T1_val, reg_type, 'T1', 5, 100) 
         #combinational_cost(combine_cost_vector_T2, combine_test_cost_vector_T2, reg_type, 'T2', 5)
         #combinational_cost(combine_cost_vector_FLAIR, combine_test_cost_vector_FLAIR, reg_type, 'FLAIR', 5)
         
