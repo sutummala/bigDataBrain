@@ -51,7 +51,7 @@ for subject in subjects:
             
     for test_path_image in test_path_images:
         test_input_image = nib.load(os.path.join(test_path, test_path_image))
-        test_input_image_data = input_image.get_fdata()
+        test_input_image_data = test_input_image.get_fdata()
         
         x, y, z =  np.shape(test_input_image_data)
         required_slice_test = test_input_image_data[round(x/2)-40:round(x/2)+40, round(y/2)-40:round(y/2)+40, round(z/2)-40:round(z/2)+40]
