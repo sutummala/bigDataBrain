@@ -1,9 +1,9 @@
 # Code created by Sudhakar on Nov 2020
-# Siamese Network with Deep Transfer Learning and fine tuning Framework for automatic quality control of (rigid, affine) registrations
+# Siamese Network with Deep Transfer Learning and fine tuning Framework for fully automatic quality control of (rigid, affine) registrations
 
 import os
 import tensorflow as tf
-from tensorflow.backend import K
+from tensorflow.keras import backend as K
 import tensorflow_addons as tfa
 from tensorflow.keras import models, layers
 from sklearn.model_selection import StratifiedKFold, RepeatedStratifiedKFold, cross_val_score
@@ -16,27 +16,27 @@ def contrastive_loss(y_true, y_pred):
     margin_square = K.square(K.maximum(margin - y_pred, 0))
     return K.mean(y_true * square_pred + (1 - y_true) * margin_square)
 
-def SiameseNetwork(base_model, input_shape):
+def SiameseNetwork(model, input_shape):
     
     moving_input = tf.keras.Input(input_shape)
 
     ref_input = tf.keras.Input(input_shape)
     
-    encoded_moving = base_model(moving_input)
-    encoded_ref = base_model(ref_input)
+    encoded_moving = model(moving_input)
+    encoded_ref = model(ref_input)
 
     L1_layer = tf.keras.layers.Lambda(lambda tensors:K.abs(tensors[0] - tensors[1]))    
     L1_distance = L1_layer([encoded_moving, encoded_ref])
 
-    prediction = tf.keras.Dense(1,activation='sigmoid')(L1_distance)
-    siamesenet = tf.keras.Model(inputs=[moving_input, ref_input],outputs=prediction)
+    prediction = tf.keras.layers.Dense(1, activation='sigmoid')(L1_distance)
+    siamesenet = tf.keras.Model(inputs=[moving_input, ref_input], outputs = prediction)
     
     return siamesenet
 
-data_dir = '/Volumes/TUMMALA/Work/Data/ABIDE-crossval/' # Path to the subjects data directory
+data_dir = '/home/tummala/data/HCP-100re' # Path to the subjects data directory
 subjects = sorted(os.listdir(data_dir)) # list of subject IDs' 
 
-ref_path = "/usr/local/fsl/data/standard" # FSL template
+ref_path = '/home/tummala/mri/tools/fsl/data/standard' # FSL template
 ref_brain = ref_path+'/MNI152_T1_1mm.nii.gz' # Whole brain MNI
 
 voi_size = 70
@@ -48,34 +48,34 @@ ref_image_data = ref_image.get_fdata()
 x, y, z =  np.shape(ref_image_data)
 
 required_ref_voi = ref_image_data[round(x/2)-voi_size:round(x/2)+voi_size:2, round(y/2)-voi_size:round(y/2)+voi_size:2, round(z/2)-voi_size:round(z/2)+voi_size:2]
+required_ref_voi = np.ndarray.flatten(required_ref_voi)[:np.prod(required_voi_size)].reshape(required_voi_size)
+#required_ref_voi = (required_ref_voi - np.min(required_ref_voi))/(np.max(required_ref_voi) - np.min(required_ref_voi)) # scaling to bring the values between zero and one
 
-reference_ref_voi = np.ndarray.flatten(required_ref_voi)[:np.prod(required_voi_size)].reshape(required_voi_size)
-reference_voi = []
-reference_voi.append(required_ref_voi)
-
+reference = []
 correctly_aligned = []
 mis_aligned = []
 
 tag = 'hrT1'
 
 # preparing training and testing data set
+
 for subject in subjects:
     # correctly aligned images
-    align_path = os.path.join(data_dir, subject, 'mni')
+    align_path = os.path.join(data_dir, subject, 'align')
     align_path_images = os.listdir(align_path)
     # mis-aligned images
-    test_path = os.path.join(data_dir, subject, 'test_imgs_T1_mni33')
+    test_path = os.path.join(data_dir, subject, 'test_imgs_T1_align33')
     test_path_images = os.listdir(test_path)
     
     for align_path_image in align_path_images:
-        if tag and align_path_image.endswith('reoriented.mni.nii'):
+        if tag in align_path_image and align_path_image.endswith('reoriented.align.nii'):
             input_image = nib.load(os.path.join(align_path, align_path_image))
             input_image_data = input_image.get_fdata()
             
             x, y, z =  np.shape(input_image_data)
             required_slice = input_image_data[round(x/2)-voi_size:round(x/2)+voi_size:2, round(y/2)-voi_size:round(y/2)+voi_size:2, round(z/2)-voi_size:round(z/2)+voi_size:2]
             required_slice = np.ndarray.flatten(required_slice)[:np.prod(required_voi_size)].reshape(required_voi_size)
-            #required_slice = required_slice/np.max(required_slice)
+            #required_slice = (required_slice - np.min(required_slice))/(np.max(required_slice) - np.min(required_slice))
             correctly_aligned.append(np.array(required_slice))
             print(f'correctly-aligned {np.shape(correctly_aligned)}')
             
@@ -86,7 +86,7 @@ for subject in subjects:
         x, y, z =  np.shape(test_input_image_data)
         required_slice_test = test_input_image_data[round(x/2)-voi_size:round(x/2)+voi_size:2, round(y/2)-voi_size:round(y/2)+voi_size:2, round(z/2)-voi_size:round(z/2)+voi_size:2]
         required_slice_test = np.ndarray.flatten(required_slice_test)[:np.prod(required_voi_size)].reshape(required_voi_size)
-        #required_slice_test = required_slice_test/np.max(required_slice_test)
+        #required_slice_test = (required_slice_test - np.min(required_slice_test))/(np.max(required_slice_test) - np.min(required_slice_test))
         
         if np.shape(mis_aligned)[0] < np.shape(correctly_aligned)[0]:
             mis_aligned.append(np.array(required_slice_test))
@@ -105,49 +105,51 @@ X = np.concatenate((correctly_aligned, mis_aligned))
 y1 = tf.convert_to_tensor(y_true, dtype = 'int32')
 X1 = tf.convert_to_tensor(X)
 
-# Transfer-learning starts
-
 img_shape = np.shape(required_slice)
+reference = np.repeat(required_ref_voi[np.newaxis, :, :, :], np.shape(X)[0], axis=0) # repeating reference to match with the sample size of moving images
 
-ref_voi_all = tf.keras.backend.repeat_elements(reference_voi, rep=np.shape(X)[0], axis = 0)
-
-preprocess_input = tf.keras.applications.vgg16.preprocess_input()
+global_average_layer = tf.keras.layers.GlobalAveragePooling2D()
+preprocess_input = tf.keras.applications.vgg16.preprocess_input
 
 X = preprocess_input(X) 
-ref_voi_all = preprocess_input(ref_voi_all)
+reference = preprocess_input(reference)
 
 base_model = tf.keras.applications.VGG16(include_top = False, input_shape = img_shape, weights = 'imagenet')
 
+base_model.trainable =  False
+
 # y_pred = tf.linalg.norm(ref_features_flat - image_features_flat, axis=1)
 # tfa.losses.contrastive_loss(y_true, y_pred)
+
+output = base_model.layers[-1].output
+output_flat = global_average_layer(output)
+base_model = tf.keras.Model(base_model.input, output_flat)
 
 folds = RepeatedStratifiedKFold(n_splits = 2, n_repeats = 1)
 
 for train_index, test_index in folds.split(X, y_true):
     X_train_moving, X_test_moving, y_train, y_test = X[train_index], X[test_index], y_true[train_index], y_true[test_index]
-    X_train_ref, X_test_ref = ref_voi_all(train_index), ref_voi_all(test_index)
+    X_train_ref, X_test_ref = reference[train_index], reference[test_index]
     
 if True:
-    inputs = tf.keras.Input(shape=img_shape)
-    x1 = base_model(inputs, training = False)
-    x1 = tf.keras.layers.GlobalAveragePooling2D(x1)
-    x1 = tf.keras.layers.Dense(256, activation = 'relu')(x1)
-    outputs = tf.keras.layers.Dropout(0.2)(x1)
-    base_model = tf.keras.Model(inputs, outputs)
-
+    model = tf.keras.Sequential()
+    model.add(base_model)
+    model.add(tf.keras.layers.Dense(256, activation='sigmoid'))
+    #model.add(tf.keras.layers.Dropout(0.2))
+    
 if True:
-    siamese_model = SiameseNetwork(base_model, img_shape)
+    siamese_model = SiameseNetwork(model, img_shape)
 
-    base_learning_rate = 0.00001
+    base_learning_rate = 0.0001
     initial_epochs = 10
-    siamese_model.compile(optimizer = tf.keras.optimizers.Adam(lr=base_learning_rate), loss = contrastive_loss, metrics = ['accuracy'])
+    siamese_model.compile(optimizer = tf.keras.optimizers.Adam(lr = base_learning_rate), loss = contrastive_loss, metrics = ['accuracy'])
     siamese_model.summary()
-    history = siamese_model.fit(([X_train_moving, X_train_ref], y_train), batch_size = 32,
-                        epochs = initial_epochs,
+    history = siamese_model.fit([X_train_moving, X_train_ref], y_train, batch_size = 32,
+                        epochs = initial_epochs, verbose = 1,
                         shuffle = True,
-                        validation_data = ([X_test_moving, X_test_ref], y_test))
+                        validation_data = ([X_test_moving, X_test_ref], y_test)) 
 
-if True:
+if False:
     base_model.trainable = True
     
     # Let's take a look to see how many layers are in the base model
@@ -160,16 +162,14 @@ if True:
     for layer in base_model.layers[:fine_tune_at]:
       layer.trainable =  False
     
-    siamese_model.compile(optimizer = tf.keras.optimizers.Adam(lr=base_learning_rate), loss = contrastive_loss, metrics = ['accuracy'])
+    siamese_model.compile(optimizer = tf.keras.optimizers.Adam(lr = base_learning_rate), loss = contrastive_loss, metrics = ['accuracy'])
     
-    base_model.summary()
+    siamese_model.summary()
     
-    fine_tune_epochs = 100
+    fine_tune_epochs = 10
     total_epochs =  initial_epochs + fine_tune_epochs
     
-    history_fine = siamese_model.fit(([X_train_moving, X_train_ref], y_train), batch_size = 32,
+    history_fine = siamese_model.fit([X_train_moving, X_train_ref], y_train, batch_size = 32,
                               epochs=total_epochs,
                               initial_epoch = history.epoch[-1],
                               validation_data = ([X_test_moving, X_test_ref], y_test))
-
-
