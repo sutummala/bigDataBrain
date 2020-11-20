@@ -5,31 +5,60 @@ import os
 import tensorflow as tf
 from tensorflow.keras import backend as K
 import tensorflow_addons as tfa
-from tensorflow.keras import models, layers
-from sklearn.model_selection import StratifiedKFold, RepeatedStratifiedKFold, cross_val_score
+from sklearn.model_selection import RepeatedStratifiedKFold, cross_val_score
 import nibabel as nib
 import numpy as np
+import random
 
 def contrastive_loss(y_true, y_pred):
+    
     margin = 1
     square_pred = K.square(y_pred)
     margin_square = K.square(K.maximum(margin - y_pred, 0))
     return K.mean(y_true * square_pred + (1 - y_true) * margin_square)
 
+def generate_pairs(X, y):
+    
+    image_list = np.split(X, X.shape[0])
+    label_list = np.split(y, len(y))
+    
+    left_input = []
+    right_input = []
+    targets = []
+    
+    pairs = 5 # Generating five pairs for each image
+    
+    for i in range(len(label_list)):
+        for _ in range(pairs):
+            compare_to = i
+            while compare_to == i: #Make sure it's not comparing to itself
+                compare_to = random.randint(0, X.shape[0]-1)
+            left_input.append(image_list[i])
+            right_input.append(image_list[compare_to])
+            if label_list[i] == label_list[compare_to]:# They are the same
+                targets.append(1.)
+            else:# Not the same
+                targets.append(0.)
+                
+    left_input = np.squeeze(np.array(left_input))
+    right_input = np.squeeze(np.array(right_input))
+    targets = np.squeeze(np.array(targets))
+    
+    return left_input, right_input, targets
+                
 def SiameseNetwork(model, input_shape):
     
     moving_input = tf.keras.Input(input_shape)
-
     ref_input = tf.keras.Input(input_shape)
     
     encoded_moving = model(moving_input)
     encoded_ref = model(ref_input)
 
     L1_layer = tf.keras.layers.Lambda(lambda tensors:K.abs(tensors[0] - tensors[1]))    
-    L1_distance = L1_layer([encoded_moving, encoded_ref])
+    L1_distance = L1_layer([encoded_moving, encoded_ref]) # L1-norm
 
     prediction = tf.keras.layers.Dense(1, activation='sigmoid')(L1_distance)
-    siamesenet = tf.keras.Model(inputs=[moving_input, ref_input], outputs = prediction)
+    siamesenet = tf.keras.Model(inputs = [moving_input, ref_input], outputs = prediction)
     
     return siamesenet
 
@@ -40,7 +69,7 @@ ref_path = '/home/tummala/mri/tools/fsl/data/standard' # FSL template
 ref_brain = ref_path+'/MNI152_T1_1mm.nii.gz' # Whole brain MNI
 
 voi_size = 70
-required_voi_size = [224, 224, 3]
+required_voi_size = [224, 224, 3] # suitable for vgg16 and resnet50, could be 299,299,3 for Inception V3
 
 ref_image = nib.load(ref_brain)
 ref_image_data = ref_image.get_fdata()
@@ -94,13 +123,20 @@ for subject in subjects:
 
 print('data is ready for deep cnn')
 
-y_cor = np.zeros(np.shape(correctly_aligned)[0])
-y_incor = np.ones(np.shape(mis_aligned)[0])
+y_cor = np.ones(np.shape(correctly_aligned)[0])
+y_incor = np.zeros(np.shape(mis_aligned)[0])
 
 y_true = np.concatenate((y_cor, y_incor))
 #y_true = tf.keras.utils.to_categorical(y_true, 2)
 X = np.concatenate((correctly_aligned, mis_aligned))
 #X = X.reshape(list(X.shape) + [1])
+
+# Generate pairs
+left_input, right_input, targets = generate_pairs(X, y_true)
+
+np.save('/home/tummala/data/left', left_input)
+np.save('/home/tummala/data/right', right_input)
+np.save('/home/tummala/data/labels', targets)
 
 y1 = tf.convert_to_tensor(y_true, dtype = 'int32')
 X1 = tf.convert_to_tensor(X)
@@ -134,22 +170,21 @@ for train_index, test_index in folds.split(X, y_true):
 if True:
     model = tf.keras.Sequential()
     model.add(base_model)
-    model.add(tf.keras.layers.Dense(256, activation='sigmoid'))
-    #model.add(tf.keras.layers.Dropout(0.2))
+    model.add(tf.keras.layers.Dense(512, activation='sigmoid'))
+    model.add(tf.keras.layers.Dropout(0.2))
     
 if True:
     siamese_model = SiameseNetwork(model, img_shape)
 
     base_learning_rate = 0.0001
     initial_epochs = 10
-    siamese_model.compile(optimizer = tf.keras.optimizers.Adam(lr = base_learning_rate), loss = contrastive_loss, metrics = ['accuracy'])
+    siamese_model.compile(optimizer = tf.keras.optimizers.Adam(lr = base_learning_rate), loss = tfa.losses.contrastive_loss, metrics = tf.keras.metrics.Recall())
     siamese_model.summary()
-    history = siamese_model.fit([X_train_moving, X_train_ref], y_train, batch_size = 32,
+    history = siamese_model.fit((X[0], X[1]), y_true, batch_size = 8,
                         epochs = initial_epochs, verbose = 1,
-                        shuffle = True,
-                        validation_data = ([X_test_moving, X_test_ref], y_test)) 
+                        validation_data = None) 
 
-if False:
+if True:
     base_model.trainable = True
     
     # Let's take a look to see how many layers are in the base model
@@ -162,11 +197,11 @@ if False:
     for layer in base_model.layers[:fine_tune_at]:
       layer.trainable =  False
     
-    siamese_model.compile(optimizer = tf.keras.optimizers.Adam(lr = base_learning_rate), loss = contrastive_loss, metrics = ['accuracy'])
+    siamese_model.compile(optimizer = tf.keras.optimizers.Adam(lr = base_learning_rate/10), loss = tfa.losses.contrastive_loss, metrics = ['accuracy'])
     
     siamese_model.summary()
     
-    fine_tune_epochs = 10
+    fine_tune_epochs = 20
     total_epochs =  initial_epochs + fine_tune_epochs
     
     history_fine = siamese_model.fit([X_train_moving, X_train_ref], y_train, batch_size = 32,
