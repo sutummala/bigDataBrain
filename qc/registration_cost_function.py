@@ -1,4 +1,4 @@
-# Code created by Sudhakar on April and modified on October 2020
+# Code created by Sudhakar on April 2020
 # Computes cost-function for checking the registration quality
 
 import progressbar
@@ -7,6 +7,7 @@ import nibabel as nib
 import all_cost_functions as acf
 
 def remove_zeros(ref, moving):
+    
     '''
     Parameters
     ----------
@@ -22,6 +23,7 @@ def remove_zeros(ref, moving):
 
 # Computing local similarity values
 def compute_local_similarity(ref_image, moving_image, cost_func, voi_size, step_size):
+    
     '''
     Parameters
     ----------
@@ -58,7 +60,7 @@ def compute_local_similarity(ref_image, moving_image, cost_func, voi_size, step_
                 elif cost_func == 'cc':
                     cost_vector.append(acf.cc(ref_voi, moving_voi))
                 elif cost_func == 'ncc':
-                    cost_vector.append(np.abs(acf.ncc(ref_voi, moving_voi, 'pearson'))) 
+                    cost_vector.append(np.abs(acf.ncc(ref_voi, moving_voi, 'spearman'))) # spearman give rank correlation, taking care of non-linear relation
                 elif cost_func == 'mi':
                     cost_vector.append(acf.mi(ref_voi, moving_voi)[0])
                 elif cost_func == 'nmi':
@@ -71,10 +73,12 @@ def compute_local_similarity(ref_image, moving_image, cost_func, voi_size, step_
     cost_vector = np.array(cost_vector)
     
     print(f'local similarity ({cost_func}) between reference and moving computed is: {np.average(cost_vector[~np.isnan(cost_vector)])}\n')
+    cost_vector = cost_vector[~np.isinf(cost_vector)] # removing inf values if any
     return np.average(cost_vector[~np.isnan(cost_vector)]) # removing nan values if any
  
-# Computing global similarity value                   
+# Computing global similarity values                   
 def compute_global_similarity(ref_image, moving_image, cost_func):
+    
     '''
     Parameters
     ----------
@@ -89,7 +93,7 @@ def compute_global_similarity(ref_image, moving_image, cost_func):
     -------
     similarity : float
         return global cost.
-    '''
+    '''                           
     if cost_func == 'ssd':
         # 1. Sum of squared differences(SSD)
         similarity = acf.ssd(ref_image, moving_image)
@@ -98,7 +102,7 @@ def compute_global_similarity(ref_image, moving_image, cost_func):
         similarity = acf.cc(ref_image, moving_image)
     elif cost_func == 'ncc':
         # 3. Normalited Cross Correlation
-        similarity = acf.ncc(ref_image, moving_image, 'pearson') 
+        similarity = acf.ncc(ref_image, moving_image, 'spearman') # spearman give rank correlation, taking care of non-linear relation
     elif cost_func == 'mi':
         # 4. Mutual Information
         similarity, _, _ = acf.mi(ref_image, moving_image)
@@ -116,6 +120,7 @@ def compute_global_similarity(ref_image, moving_image, cost_func):
 
 # main function for computing local and global registration 
 def do_compute_main(ref_image, moving_image, cost_func, voi_size, step_size, measure_global, measure_local):
+    
     '''
     Parameters
     ----------
@@ -162,6 +167,7 @@ def do_compute_main(ref_image, moving_image, cost_func, voi_size, step_size, mea
     
 # Checking registration to MNI template 
 def do_check_registration(refpath, movingfile, cost_func, voi_size, step_size, masking, measure_global, measure_local):
+    
     '''
     Parameters
     ----------
@@ -195,14 +201,14 @@ def do_check_registration(refpath, movingfile, cost_func, voi_size, step_size, m
     
     reference = nib.load(ref)
     ref_image = reference.get_fdata() # reference image
-    #ref_image = ref_image/max(np.ndarray.flatten(ref_image))
+    ref_image = ref_image/max(np.ndarray.flatten(ref_image))
     
     ref_mask = nib.load(refmask)
     refmask_image = ref_mask.get_fdata() # mask based on reference
     
     moving = nib.load(movingfile)
     moving_image = moving.get_fdata() # moving image (image under check)
-    #moving_image = moving_image/max(np.ndarray.flatten(moving_image))
+    moving_image = moving_image/max(np.ndarray.flatten(moving_image))
     
     if masking:
         ref_image = ref_image * refmask_image
@@ -212,6 +218,7 @@ def do_check_registration(refpath, movingfile, cost_func, voi_size, step_size, m
         
 # Checking co-registration of T2/FLAIR to T1 brain or T1/T2/FLAIR to MNI if full path is given in ref
 def do_check_coregistration(ref, movingfile, cost_func, voi_size, step_size, masking, measure_global, measure_local):
+    
     '''
     Parameters
     ----------
@@ -238,8 +245,7 @@ def do_check_coregistration(ref, movingfile, cost_func, voi_size, step_size, mas
         value of the global cost.
     local_cost : float
         value of the local cost.
-    '''
-       
+    '''   
     reference = nib.load(ref)
     ref_image = reference.get_fdata() # reference image
     #ref_image = ref_image/max(np.ndarray.flatten(ref_image)) # Intensity normalization

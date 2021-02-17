@@ -1,13 +1,12 @@
-# code created by Sudhakar on May 2020 and modified on August 2020 to add different classifiers
+# code created by Sudhakar on May 2020 and modified on August 2020 to add different ML classifiers
 # check registration
-
 
 import os
 import all_plots as ap
 import numpy as np
 from sklearn import metrics
-from sklearn.model_selection import StratifiedKFold, RepeatedStratifiedKFold, cross_val_score
-from sklearn.preprocessing import MinMaxScaler, MaxAbsScaler
+from sklearn.model_selection import StratifiedKFold, RepeatedStratifiedKFold, cross_val_score, train_test_split
+from sklearn.preprocessing import MinMaxScaler, MaxAbsScaler, StandardScaler
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QDA
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier
@@ -20,9 +19,10 @@ import tensorflow as tf
 import pickle
 
 plt.rcParams.update({'font.size': 22})
-subpath1 = '/media/tummala/New Volume/Tummala/Research/ABIDE-crossval'
-#subpath2 = '/media/tummala/New Volume/Tummala/Research/ABIDE-validate'
-subpath2 = '/home/tummala/data/HCP-100re'
+subpath1 = '/home/tummala/data/HCP-100'
+#subpath1 = '/media/tummala/TUMMALA/Work/Data/ABIDE-crossval'
+subpath2 = '/media/tummala/TUMMALA/Work/Data/ABIDE-validate'
+#subpath2 = '/home/tummala/data/HCP-100re'
 
 voi_size = 3
 step_size = 3 # stride
@@ -192,13 +192,31 @@ def get_test_cost_vectors(cost_func, reg_type, subpath, tag):
 def compute_cutoff_auc(data1, data2, *tags):
     '''computes cut-off point and AUC for given cost and reg type from data1 (normal values), data2 (test values)'''
     
-    if False:
-        data2 = data2[:np.shape(data1)[0]] # To make sizes of both classes same
-    labels = np.concatenate([np.ones(len(data1)), np.zeros(len(data2))])
-    print(f'{len(data1)}, {len(data2)}')
-    fpr, tpr, thresholds = metrics.roc_curve(labels, np.concatenate([data1, data2]), pos_label = 1)
+    labels_predict = []
     
-    print(f'Threshold for {tags[2]}-{tags[1]}-{tags[3]}-{tags[0]} is: {thresholds[np.argmax(tpr-fpr)]}, sensitivity (recall) is: {tpr[np.argmax(tpr-fpr)]}, specificity is: {1-fpr[np.argmax(tpr-fpr)]}, fall-out is: {fpr[np.argmax(tpr-fpr)]}, AUC is: {metrics.auc(fpr, tpr)}\n')
+    balance_groups = 0
+    
+    if balance_groups:
+        data2 = data2[:np.shape(data1)[0]] # To make sizes of both classes same
+    labels = np.concatenate([np.zeros(len(data1)), np.ones(len(data2))])
+    data = np.concatenate([data1, data2]).reshape(-1, 1)
+    sc = MinMaxScaler()
+    data = sc.fit_transform(data)
+    data_train, data_test, labels_train, labels_test = train_test_split(data, labels, test_size = 0.25, stratify = labels, shuffle = True)
+    #print(f'{len(data1)}, {len(data2)}')
+    fpr, tpr, thresholds = metrics.roc_curve(labels_train, data_train, pos_label = 0)
+    threshold = thresholds[np.argmax(tpr-fpr)]
+    
+    #labels_predict = data_test[data_test > threshold] # predicting the labels on the testset based on the threshold on the training set
+    
+    for j in range(len(labels_test)):
+        if data_test[j] > threshold:
+            labels_predict.append(0)
+        else:
+            labels_predict.append(1)
+                
+    print(f'F1-score and Balanced Accuracy on test-set for {tags[2]}-{tags[1]}-{tags[3]}-{tags[0]} are {metrics.f1_score(labels_test, labels_predict)}, {metrics.balanced_accuracy_score(labels_test, labels_predict)}')
+    #print(f'Threshold for {tags[2]}-{tags[1]}-{tags[3]}-{tags[0]} is: {thresholds[np.argmax(tpr-fpr)]}, sensitivity (recall) is: {tpr[np.argmax(tpr-fpr)]}, specificity is: {1-fpr[np.argmax(tpr-fpr)]}, fall-out is: {fpr[np.argmax(tpr-fpr)]}, AUC is: {metrics.auc(fpr, tpr)}\n')
     
 def classifier_accuracy(model, X_train, X_test, y_train, y_test):
     'get model (classifier) accuracy based on training and testing'
@@ -210,7 +228,10 @@ def classifier_accuracy(model, X_train, X_test, y_train, y_test):
     #print(f'area under PR curve is {metrics.auc(recall, precision)}')
     #print(X_test)
     #print(y_test-model.predict(X_test))
-    return metrics.f1_score(y_test, model.predict(X_test)), metrics.roc_auc_score(y_test, model.predict_proba(X_test)[:,1]), model      
+    tn, fp, fn, tp = metrics.confusion_matrix(y_test, model.predict(X_test)).ravel()
+    specificity = tn/(tn+fp)
+    
+    return metrics.balanced_accuracy_score(y_test, model.predict(X_test)), metrics.roc_auc_score(y_test, model.predict_proba(X_test)[:,1]), model      
 
 def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_folds, number_rep):
     '''
@@ -240,7 +261,7 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
     x_normal_label = np.zeros(len(X_normal))
     print(f'number of correctly aligned images for training/testing are {len(x_normal_label)}')
     
-    balance_data = True
+    balance_data = 0
     # transposing and creating labels for data2
     if balance_data:    
         X_misaligned = np.transpose(data2)[:np.shape(X_normal)[0], :]
@@ -269,9 +290,12 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
     y = np.concatenate((x_normal_label, x_misaligned_label))
        
     # scaling the costs (features) to make sure the ranges of individual features are same to avoid the effect of features that have relatively large values. It may not be necessary in this case as all these 3 costs lie between 0 and 1  
-    scale = MaxAbsScaler()
+    scale = StandardScaler() # Subtracting the mean and dividing with standard deviation
     X = scale.fit_transform(X)
-    X_val = scale.transform(X_val)
+    X_val = scale.fit_transform(X_val) # fit_transform is necessary here instead of just transform
+    
+    # X = np.concatenate((X, X_val))
+    # y = np.concatenate((y, y_val))
     
     # Repeated K-fold cross validation, n_splits specifies the number of folds, n_repeats specifies the no.of repetetions
     folds = RepeatedStratifiedKFold(n_splits = no_of_folds, n_repeats = number_rep)
@@ -301,12 +325,16 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
     for train_index, test_index in folds.split(X, y):
         
         X_train, X_test, y_train, y_test = X[train_index], X[test_index], y[train_index], y[test_index]
+        
+        #X_train, X_test, y_train, y_test = train_test_split(X_1, y_1, test_size = 0.20, stratify = y_1, shuffle = True)
     
         # 1. Linear Discriminant Analysis Classifier
         lda = LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1)
         score_lda, roc_auc_lda, model_lda = classifier_accuracy(lda, X_train, X_test, y_train, y_test)
+        # print('F1-score for LDA', {metrics.f1_score(y_val, LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1).fit(X, y).predict(X_val))})
         scores_lda.append(score_lda) # F1-score
         auc_lda.append(roc_auc_lda) # AUC
+        #auc_lda.append(metrics.f1_score(y_validation, LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1).fit(X_1, y_1).predict(X_validation))) # AUC
         
         # 1a. Quadratic Discriminant Analysis Classifier
         qda = QDA()
@@ -315,13 +343,13 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
         auc_qda.append(roc_auc_qda)
         
         # 2. Random Forest Classifier (it could be done in LDA transformed space if you have large number of features)
-        rfc = RandomForestClassifier(criterion = 'gini', n_estimators = 100)
+        rfc = RandomForestClassifier(criterion = 'gini', n_estimators = 10)
         score_rfc, roc_auc_rfc, model_rfc = classifier_accuracy(rfc, X_train, X_test, y_train, y_test)
         scores_rfc.append(score_rfc)
         auc_rfc.append(roc_auc_rfc)
         
         # 3. Support Vector Machine Classifier
-        svc = SVC(kernel = 'linear', gamma = 'scale', probability = True)
+        svc = SVC(kernel = 'rbf', gamma = 'scale', probability = True)
         score_svm, roc_auc_svm, model_svm = classifier_accuracy(svc, X_train, X_test, y_train, y_test)
         scores_svm.append(score_svm)
         auc_svm.append(roc_auc_svm)
@@ -334,7 +362,7 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
         auc_gnb.append(roc_auc_gnb)
         
         # 5. k-Nearest Neighbour Classifier
-        knn = kNN(n_neighbors = 15)
+        knn = kNN(n_neighbors = 9)
         score_knn, roc_auc_knn, model_knn = classifier_accuracy(knn, X_train, X_test, y_train, y_test)
         scores_knn.append(score_knn)
         auc_knn.append(roc_auc_knn)
@@ -346,7 +374,7 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
         auc_lor.append(roc_auc_lor)
         
         # 7. Ada Boost Classifier
-        ada = AdaBoostClassifier(n_estimators = 100)
+        ada = AdaBoostClassifier(n_estimators = 10)
         score_ada, roc_auc_ada, model_ada = classifier_accuracy(ada, X_train, X_test, y_train, y_test)
         scores_ada.append(score_ada)
         auc_ada.append(roc_auc_ada)
@@ -402,23 +430,23 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
     # plotting ROC curve for Sensitivity/Specificity all above classifiers
     if True:
         lda_disp = metrics.plot_roc_curve(LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1).fit(X, y), X_val, y_val, drop_intermediate = False)
-        print('F1-score for LDA', {metrics.f1_score(y_val, LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1).fit(X, y).predict(X_val))})
+        print('F1-score for LDA', {metrics.balanced_accuracy_score(y_val, LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1).fit(X, y).predict(X_val))})
         #qda_disp = metrics.plot_roc_curve(qda, X_test, y_test, ax = lda_disp.ax_)
         svm_disp = metrics.plot_roc_curve(SVC(kernel = 'linear', gamma = 'scale', probability = True).fit(X, y), X_val, y_val, ax = lda_disp.ax_)
-        print('F1-score for SVM', {metrics.f1_score(y_val, SVC(kernel = 'linear', gamma = 'scale', probability = True).fit(X, y).predict(X_val))})
+        print('F1-score for SVM', {metrics.balanced_accuracy_score(y_val, SVC(kernel = 'linear', gamma = 'scale', probability = True).fit(X, y).predict(X_val))})
         #nsvm_disp = metrics.plot_roc_curve(nsvm, X_test, y_test, ax = lda_disp.ax_)
         gnb_disp = metrics.plot_roc_curve(GaussianNB().fit(X, y), X_val, y_val, ax = lda_disp.ax_)
-        print('F1-score for GNB', {metrics.f1_score(y_val, GaussianNB().fit(X, y).predict(X_val))})
+        print('F1-score for GNB', {metrics.balanced_accuracy_score(y_val, GaussianNB().fit(X, y).predict(X_val))})
         knn_disp = metrics.plot_roc_curve(kNN(n_neighbors = 15).fit(X, y), X_val, y_val, ax = lda_disp.ax_)
-        print('F1-score for kNN', {metrics.f1_score(y_val, kNN(n_neighbors = 15).fit(X, y).predict(X_val))})
+        print('F1-score for kNN', {metrics.balanced_accuracy_score(y_val, kNN(n_neighbors = 15).fit(X, y).predict(X_val))})
         rfc_disp = metrics.plot_roc_curve(RandomForestClassifier(criterion = 'gini', n_estimators = 100).fit(X, y), X_val, y_val, ax = lda_disp.ax_)
-        print('F1-score for RFC', {metrics.f1_score(y_val, RandomForestClassifier(criterion = 'gini', n_estimators = 100).fit(X, y).predict(X_val))})
+        print('F1-score for RFC', {metrics.balanced_accuracy_score(y_val, RandomForestClassifier(criterion = 'gini', n_estimators = 100).fit(X, y).predict(X_val))})
         ada_disp = metrics.plot_roc_curve(AdaBoostClassifier(n_estimators = 100).fit(X, y), X_val, y_val, ax = lda_disp.ax_)
-        print('F1-score for Ada Boost', {metrics.f1_score(y_val, AdaBoostClassifier(n_estimators = 100).fit(X, y).predict(X_val))})
+        print('F1-score for Ada Boost', {metrics.balanced_accuracy_score(y_val, AdaBoostClassifier(n_estimators = 100).fit(X, y).predict(X_val))})
         #knn_disp.figure_.suptitle(f"ROC curve comparison {image_tag}-{reg_type}")
         
     # plotting Precision-Recall ROC curve for all above classifiers
-    if True:
+    if False:
         lda_disp = metrics.plot_precision_recall_curve(LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1).fit(X, y), X_val, y_val)
         #qda_disp = metrics.precision_recall_curve(qda, X_test, y_test, ax = lda_disp.ax_)
         svm_disp = metrics.plot_precision_recall_curve(SVC(kernel = 'linear', gamma = 'scale', probability = True).fit(X, y), X_val, y_val, ax = lda_disp.ax_)
@@ -436,7 +464,6 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
     # print(cm)
     # print('Accuracy' + str(metrics.accuracy_score(y_test, y_pred)))    
         
-
 if __name__ == '__main__':
     
     costs = ['ncc', 'nmi', 'cor']
@@ -452,46 +479,48 @@ if __name__ == '__main__':
         combine_cost_vector_T2 = []
         combine_test_cost_vector_T2 = []
         
+        combine_cost_vector_T2_val = []
+        combine_test_cost_vector_T2_val = []
+        
         combine_cost_vector_FLAIR = []
         combine_test_cost_vector_FLAIR = []
         
         for cost in costs:
             # getting normal values for hrT1, hrT2 and hrFLAIR for bigdata 
             global_cost_vector_bigdata_T1, local_cost_vector_bigdata_T1 = get_cost_vectors(cost, reg_type, subpath1, 'hrT1') # T1 to MNI
-            global_cost_vector_bigdata_FLAIR, local_cost_vector_bigdata_FLAIR = get_cost_vectors(cost, reg_type, subpath1, 'hrFLAIR') # FLAIR to MNI
+            global_cost_vector_bigdata_T2, local_cost_vector_bigdata_T2 = get_cost_vectors(cost, reg_type, subpath1, 'hrT2') # FLAIR to MNI
             
             if reg_type == 'align':
                 global_cost_vector_bigdata_FLAIRtoT1, local_cost_vector_bigdata_FLAIRtoT1 = get_coreg_cost_vectors(cost, subpath1, 'hrFLAIR') # FLAIR brain to T1 brain (only align)
             
             combine_cost_vector_T1.append(local_cost_vector_bigdata_T1) # T1 data
-            combine_cost_vector_FLAIR.append(local_cost_vector_bigdata_FLAIR) # FLAIR data
+            combine_cost_vector_T2.append(local_cost_vector_bigdata_T2) # T2 data
             
             # HCP-YA
             global_cost_vector_hcpya_T1, local_cost_vector_hcpya_T1 = get_cost_vectors(cost, reg_type, subpath2, 'hrT1') # T1 to MNI
             global_cost_vector_hcpya_T2, local_cost_vector_hcpya_T2 = get_cost_vectors(cost, reg_type, subpath2, 'hrT2') # T2 to MNI
             
             combine_cost_vector_T1_val.append(local_cost_vector_hcpya_T1)
+            combine_cost_vector_T2_val.append(local_cost_vector_hcpya_T2)
             
             if reg_type == 'align':
                 global_cost_vector_hcpya_T2toT1, local_cost_vector_hcpya_T2toT1 = get_coreg_cost_vectors(cost, subpath2, 'hrT2') # T2 brain to T1 brain (only align)
-            
-            combine_cost_vector_T2.append(local_cost_vector_hcpya_T2) # T2 data 
     
             if False:
                 # plotting normal values for T1, T2 and FLAIR
-                ap.plot_cost([global_cost_vector_bigdata_T1, global_cost_vector_hcpya_T1, global_cost_vector_hcpya_T2, global_cost_vector_bigdata_FLAIR], cost,
+                ap.plot_cost([global_cost_vector_bigdata_T1, global_cost_vector_hcpya_T1, global_cost_vector_hcpya_T2, global_cost_vector_bigdata_T2], cost,
                           ['T1', 'T1(hcp)', 'T2(hcp)', 'FLAIR'], f'global-{reg_type}') # plotting global cost
             if False:
-                ap.plot_cost([local_cost_vector_bigdata_T1, local_cost_vector_hcpya_T1, local_cost_vector_hcpya_T2, local_cost_vector_bigdata_FLAIR], cost,
+                ap.plot_cost([local_cost_vector_bigdata_T1, local_cost_vector_hcpya_T1, local_cost_vector_hcpya_T2, local_cost_vector_bigdata_T2], cost,
                           ['T1', 'T1(hcp)', 'T2(hcp)', 'FLAIR'], f'local-{reg_type}') # plotting local cost
             
             # getting test values for hrT1, hrT2 and hrFLAIR for bigdata 
             global_test_cost_vector_bigdata_T1, local_test_cost_vector_bigdata_T1 = get_test_cost_vectors(cost, reg_type, subpath1, 'hrT1') # T1 to MNI
-            global_test_cost_vector_bigdata_FLAIR, local_test_cost_vector_bigdata_FLAIR = get_test_cost_vectors(cost, reg_type, subpath1, 'hrFLAIR') # FLAIR to MNI
+            global_test_cost_vector_bigdata_FLAIR, local_test_cost_vector_bigdata_FLAIR = get_test_cost_vectors(cost, reg_type, subpath1, 'hrT2') # FLAIR to MNI
             global_test_cost_vector_bigdata_FLAIRtoT1, local_test_cost_vector_bigdata_FLAIRtoT1 = get_coreg_test_cost_vectors(cost, subpath1, 'hrFLAIR') # FLAIR brain to T1 brain (only align)
             
             combine_test_cost_vector_T1.append(local_test_cost_vector_bigdata_T1) # T1 test data
-            combine_test_cost_vector_FLAIR.append(local_test_cost_vector_bigdata_FLAIR) # FLAIR test data
+            combine_test_cost_vector_T2.append(local_test_cost_vector_bigdata_FLAIR) # FLAIR test data
             
             # HCPYA
             global_test_cost_vector_hcpya_T1, local_test_cost_vector_hcpya_T1 = get_test_cost_vectors(cost, reg_type, subpath2, 'hrT1') # T1 to MNI
@@ -499,13 +528,13 @@ if __name__ == '__main__':
             global_test_cost_vector_hcpya_T2toT1, local_test_cost_vector_hcpya_T2toT1 = get_coreg_test_cost_vectors(cost, subpath2, 'hrT2') # T2 to T1 (only align)
             
             combine_test_cost_vector_T1_val.append(local_test_cost_vector_hcpya_T1) # T1 validate data
-            combine_test_cost_vector_T2.append(local_test_cost_vector_hcpya_T2) # T2 test data
+            combine_test_cost_vector_T2_val.append(local_test_cost_vector_hcpya_T2) # T2 test data
             
             if False:
                 ap.plot_cost([local_cost_vector_bigdata_T1, local_test_cost_vector_bigdata_T1], cost,
                           ['T1', 'T1-test', 'T1(local)', 'T1-test(local)'], f'Big-Data {reg_type}') # plotting local cost for bigdata T1
             if False:
-                ap.plot_cost([local_cost_vector_bigdata_FLAIR, local_test_cost_vector_bigdata_FLAIR], cost,
+                ap.plot_cost([local_cost_vector_bigdata_T2, local_test_cost_vector_bigdata_FLAIR], cost,
                           ['FLAIR', 'FLAIR-test', 'FLAIR(local)', 'FLAIR-test(local)'], f'Big-Data {reg_type}') # plotting local cost for bigdata FLAIR
             if False and reg_type == 'align':
                 ap.plot_cost([local_cost_vector_bigdata_FLAIRtoT1, local_test_cost_vector_bigdata_FLAIRtoT1], cost,
@@ -526,12 +555,12 @@ if __name__ == '__main__':
             print('doing for Big Data\n')
             
             #compute_cutoff_auc(global_cost_vector_bigdata_T1, global_test_cost_vector_bigdata_T1, cost, reg_type, 'hrT1', 'global') # T1 to MNI
-            compute_cutoff_auc(local_cost_vector_bigdata_T1, local_test_cost_vector_bigdata_T1, cost, reg_type, 'hrT1', 'local') # T1 to MNI
+            #compute_cutoff_auc(local_cost_vector_bigdata_T1, local_test_cost_vector_bigdata_T1, cost, reg_type, 'hrT1', 'local') # T1 to MNI
             print('----------------------------------------------------------------------------------------------------')
             
             #compute_cutoff_auc(global_cost_vector_bigdata_FLAIR, global_test_cost_vector_bigdata_FLAIR, cost, reg_type, 'hrFLAIR', 'global') # FLAIR to MNI
             if False:
-                compute_cutoff_auc(local_cost_vector_bigdata_FLAIR, local_test_cost_vector_bigdata_FLAIR, cost, reg_type, 'hrFLAIR', 'local') # FLAIR to MNI
+                compute_cutoff_auc(local_cost_vector_bigdata_T2, local_test_cost_vector_bigdata_FLAIR, cost, reg_type, 'hrFLAIR', 'local') # FLAIR to MNI
                 print('----------------------------------------------------------------------------------------------------')
             
             if False:
@@ -555,7 +584,8 @@ if __name__ == '__main__':
                 compute_cutoff_auc(local_cost_vector_hcpya_T2toT1, local_test_cost_vector_hcpya_T2toT1, cost, 'T1', 'hrT2', 'local') # T2 brain to T1 brain
         
         # calling combinational_cost method to design a classifier 
-        combinational_cost(combine_cost_vector_T1, combine_test_cost_vector_T1, combine_cost_vector_T1_val, combine_test_cost_vector_T1_val, reg_type, 'T1', 5, 100) 
+        combinational_cost(combine_cost_vector_T1, combine_test_cost_vector_T1, combine_cost_vector_T1_val, combine_test_cost_vector_T1_val, reg_type, 'T1', 5, 10)
+        #combinational_cost(combine_cost_vector_T2, combine_test_cost_vector_T2, combine_cost_vector_T2_val, combine_test_cost_vector_T2_val, reg_type, 'T2', 5, 10) 
         #combinational_cost(combine_cost_vector_T2, combine_test_cost_vector_T2, reg_type, 'T2', 5)
         #combinational_cost(combine_cost_vector_FLAIR, combine_test_cost_vector_FLAIR, reg_type, 'FLAIR', 5)
         

@@ -35,7 +35,7 @@ def compute_cost_vectors(data_dir, subject, reg_type, cost_func, tag, voi_size, 
     returns global and local cost vectors 
     '''
     
-    recompute =  True # flag if you want to recompute
+    recompute =  False # flag if you want to recompute
     
     if reg_type == 'align':
         required_folder = data_dir+'/'+subject+'/align'
@@ -54,10 +54,10 @@ def compute_cost_vectors(data_dir, subject, reg_type, cost_func, tag, voi_size, 
             cost_file = movingfile[0:-4]+f'.{cost_func}.data'
             
             if not recompute and os.path.exists(cost_folder+'/'+cost_file) and os.path.getsize(cost_folder+'/'+cost_file) > 0:
-                print(f'cost values were already computed at {cost_file}')
+                print(f'cost values were already computed at {cost_file}\n')
             else:
                 global_cost, local_cost = rcf.do_check_registration(refpath, required_folder+'/'+movingfile, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)
-                np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.6f')
+                np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost])
             
 def compute_coreg_cost_vectors(data_dir, subject, cost_func, tag, voi_size, step_size):
     '''
@@ -80,7 +80,7 @@ def compute_coreg_cost_vectors(data_dir, subject, cost_func, tag, voi_size, step
     -------
     returns global and local cost vectors for coregistration of T2/FLAIR to corresponding T1
     '''
-    recompute =  True # flag if you want to recompute
+    recompute =  False # flag if you want to recompute
     
     #print(f'doing cost estimation for registering {tag} brain to hrT1 brain\n')
     required_folder = data_dir+'/'+subject+'/anat'
@@ -106,12 +106,12 @@ def compute_coreg_cost_vectors(data_dir, subject, cost_func, tag, voi_size, step
         cost_file = movingfile_moving[0:-4]+f'.{cost_func}.data'
         
         if not recompute and os.path.exists(cost_folder+'/'+cost_file) and os.path.getsize(cost_folder+'/'+cost_file) > 0:
-            print(f'cost values were already computed at {cost_file}')
+            print(f'cost values were already computed at {cost_file}\n')
         else:
             global_cost, local_cost = rcf.do_check_coregistration(required_folder+'/'+movingfile_ref, required_folder+'/'+movingfile_moving, cost_func, voi_size, step_size, masking = True, measure_global = True, measure_local = True)
-            np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost], fmt = '%1.6f')
+            np.savetxt(cost_folder+'/'+cost_file, [global_cost, local_cost])
 
-def main(data_dir, subject):
+def main(data_dir, subject, voi_size, step_size):
     '''
     Parameters
     ----------
@@ -122,21 +122,16 @@ def main(data_dir, subject):
 
     Returns
     -------
-    NCC, NMI and CA values for rigid and affine.
-    
+    SSD, NCC, NMI and CA values for quality control of rigid and affine registrations.
     '''
     image_types = ['hrT1', 'hrT2', 'hrFLAIR']
     costs = ['ncc', 'nmi', 'cor']
     reg_types = ['align', 'affine']
     
-    # VOI and step size for local cost computation
-    voi_size = 3
-    step_size = 3 # stride
-    
     for image_type in image_types:
         for cost in costs:
             # computing cost for co-registration of T2/FLAIR brain to T1 brain
-            if image_type == 'hrT2' or image_type == 'hrFLAIR' or image_type == 'hrPD':
+            if image_type == 'hrFLAIR' or image_type == 'hrPD':
                 compute_coreg_cost_vectors(data_dir, subject, cost, image_type, voi_size, step_size)
             for reg_type in reg_types:
             # dealing with hrT1, hrT2 and hrFLAIR for bigdata and HCPYA, rigid and affine registration
@@ -151,7 +146,7 @@ def main(data_dir, subject):
 #             # dealing with hrT1, hrT2 and hrFLAIR for bigdata and HCPYA, rigid and affine registration
 #                 compute_cost_vectors(data_dir, subject, reg_type, cost, image_type, voi_size, step_size)
             
-print('done computation\n')
+    print('done computation\n')
 
 
     
