@@ -255,7 +255,7 @@ def main(data_dir, subject, voi_size, step_size, no_of_test_images):
             for cost in costs:
                 pass
                 # computing cost for test images (T1, T2 and FLAIR)
-                #compute_test_cost_vectors(data_dir, subject, reg_type, cost, image_type, voi_size, step_size)
+                compute_test_cost_vectors(data_dir, subject, reg_type, cost, image_type, voi_size, step_size)
             
 # for image_type in image_types[1:]:
 #     # genrating test images for co-reg of T2/FLAIR brain to T1 brain

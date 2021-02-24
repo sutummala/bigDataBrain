@@ -6,7 +6,7 @@ import all_plots as ap
 import numpy as np
 from sklearn import metrics
 from sklearn.model_selection import StratifiedKFold, RepeatedStratifiedKFold, cross_val_score, train_test_split
-from sklearn.preprocessing import MinMaxScaler, MaxAbsScaler, StandardScaler
+from sklearn.preprocessing import MinMaxScaler, MaxAbsScaler, StandardScaler, PowerTransformer, QuantileTransformer
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QDA
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier
@@ -21,11 +21,11 @@ import pickle
 plt.rcParams.update({'font.size': 22})
 subpath1 = '/home/tummala/data/HCP-100'
 #subpath1 = '/media/tummala/TUMMALA/Work/Data/ABIDE-crossval'
-subpath2 = '/media/tummala/TUMMALA/Work/Data/ABIDE-validate'
-#subpath2 = '/home/tummala/data/HCP-100re'
+#subpath2 = '/media/tummala/TUMMALA/Work/Data/ABIDE-validate'
+subpath2 = '/home/tummala/data/HCP-100re'
 
-voi_size = 3
-step_size = 3 # stride
+voi_size = 7
+step_size = 7 # stride
 # subpath3 = '/usr/users/tummala/bigdata'
 # subpath4 = '/usr/users/tummala/HCP-YA-test'
 
@@ -261,7 +261,8 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
     x_normal_label = np.zeros(len(X_normal))
     print(f'number of correctly aligned images for training/testing are {len(x_normal_label)}')
     
-    balance_data = 0
+    balance_data = 0 # Since the generated misaligned images are 5 times higher, the two classes can be balanced by considering this flag variable one
+    
     # transposing and creating labels for data2
     if balance_data:    
         X_misaligned = np.transpose(data2)[:np.shape(X_normal)[0], :]
@@ -290,7 +291,8 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
     y = np.concatenate((x_normal_label, x_misaligned_label))
        
     # scaling the costs (features) to make sure the ranges of individual features are same to avoid the effect of features that have relatively large values. It may not be necessary in this case as all these 3 costs lie between 0 and 1  
-    scale = StandardScaler() # Subtracting the mean and dividing with standard deviation
+    #scale = QuantileTransformer(n_quantiles = 10, output_distribution = 'uniform') # Subtracting the mean and dividing with standard deviation
+    scale = StandardScaler()
     X = scale.fit_transform(X)
     X_val = scale.fit_transform(X_val) # fit_transform is necessary here instead of just transform
     
@@ -343,7 +345,7 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
         auc_qda.append(roc_auc_qda)
         
         # 2. Random Forest Classifier (it could be done in LDA transformed space if you have large number of features)
-        rfc = RandomForestClassifier(criterion = 'gini', n_estimators = 10)
+        rfc = RandomForestClassifier(criterion = 'gini', n_estimators = 100)
         score_rfc, roc_auc_rfc, model_rfc = classifier_accuracy(rfc, X_train, X_test, y_train, y_test)
         scores_rfc.append(score_rfc)
         auc_rfc.append(roc_auc_rfc)
@@ -362,7 +364,7 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
         auc_gnb.append(roc_auc_gnb)
         
         # 5. k-Nearest Neighbour Classifier
-        knn = kNN(n_neighbors = 9)
+        knn = kNN(n_neighbors = 15)
         score_knn, roc_auc_knn, model_knn = classifier_accuracy(knn, X_train, X_test, y_train, y_test)
         scores_knn.append(score_knn)
         auc_knn.append(roc_auc_knn)
@@ -374,7 +376,7 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
         auc_lor.append(roc_auc_lor)
         
         # 7. Ada Boost Classifier
-        ada = AdaBoostClassifier(n_estimators = 10)
+        ada = AdaBoostClassifier(n_estimators = 100)
         score_ada, roc_auc_ada, model_ada = classifier_accuracy(ada, X_train, X_test, y_train, y_test)
         scores_ada.append(score_ada)
         auc_ada.append(roc_auc_ada)
@@ -385,7 +387,7 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
         scores_gra.append(score_gra)
         auc_gra.append(roc_auc_gra)
         
-        # 8. Arteficial Neural Network (Deep Learning)
+        # 8. Artificial Neural Network (Deep Learning)
         # model_ann = tf.keras.models.Sequential()
         # model_ann.add(tf.keras.layers.Dense(units = np.shape(X_train)[1] + 1, activation = 'relu', input_shape = (np.shape(X_train)[1],))) # input_shape takes height of the input layer which is usually fed during first dense layer allocation
         # model_ann.add(tf.keras.layers.Dense(units = np.shape(X_train)[1] + 1, activation = 'relu')) # hidden layer
@@ -416,7 +418,7 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
         os.makedirs(save_model)
     
     # saving the trained model, e.g. shown for saving ada boost classifier model and minmax scaling model
-    pickle.dump(scale, open(save_model+'/'+'scale_'+reg_type+image_tag, 'wb'))
+    pickle.dump(scale.fit(X), open(save_model+'/'+'scale_'+reg_type+image_tag, 'wb'))
     pickle.dump(LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1).fit(X, y), open(save_model+'/'+'lda_'+reg_type+image_tag, 'wb'))
     pickle.dump(QDA().fit(X, y), open(save_model+'/'+'qda_'+reg_type+image_tag, 'wb'))
     pickle.dump(RandomForestClassifier(criterion = 'gini', n_estimators = 100).fit(X, y), open(save_model+'/'+'rfc_'+reg_type+image_tag, 'wb'))
@@ -441,6 +443,10 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
         print('F1-score for kNN', {metrics.balanced_accuracy_score(y_val, kNN(n_neighbors = 15).fit(X, y).predict(X_val))})
         rfc_disp = metrics.plot_roc_curve(RandomForestClassifier(criterion = 'gini', n_estimators = 100).fit(X, y), X_val, y_val, ax = lda_disp.ax_)
         print('F1-score for RFC', {metrics.balanced_accuracy_score(y_val, RandomForestClassifier(criterion = 'gini', n_estimators = 100).fit(X, y).predict(X_val))})
+        #print(y_val)
+        #print(RandomForestClassifier(criterion = 'gini', n_estimators = 100).fit(X, y).predict_proba(X_val)[:, 1])
+        metrics.plot_confusion_matrix(RandomForestClassifier(criterion = 'gini', n_estimators = 100).fit(X, y), X_val, y_val)
+        plt.show()
         ada_disp = metrics.plot_roc_curve(AdaBoostClassifier(n_estimators = 100).fit(X, y), X_val, y_val, ax = lda_disp.ax_)
         print('F1-score for Ada Boost', {metrics.balanced_accuracy_score(y_val, AdaBoostClassifier(n_estimators = 100).fit(X, y).predict(X_val))})
         #knn_disp.figure_.suptitle(f"ROC curve comparison {image_tag}-{reg_type}")
@@ -468,6 +474,8 @@ if __name__ == '__main__':
     
     costs = ['ncc', 'nmi', 'cor']
     reg_types = ['align', 'mni']
+    
+    local = True
 
     for reg_type in reg_types:
         combine_cost_vector_T1 = []
@@ -493,15 +501,23 @@ if __name__ == '__main__':
             if reg_type == 'align':
                 global_cost_vector_bigdata_FLAIRtoT1, local_cost_vector_bigdata_FLAIRtoT1 = get_coreg_cost_vectors(cost, subpath1, 'hrFLAIR') # FLAIR brain to T1 brain (only align)
             
-            combine_cost_vector_T1.append(local_cost_vector_bigdata_T1) # T1 data
-            combine_cost_vector_T2.append(local_cost_vector_bigdata_T2) # T2 data
+            if local:
+                combine_cost_vector_T1.append(local_cost_vector_bigdata_T1) # T1 data
+                combine_cost_vector_T2.append(local_cost_vector_bigdata_T2) # T2 data
+            else:
+                combine_cost_vector_T1.append(global_cost_vector_bigdata_T1) # T1 data
+                combine_cost_vector_T2.append(global_cost_vector_bigdata_T2) # T2 data
             
             # HCP-YA
             global_cost_vector_hcpya_T1, local_cost_vector_hcpya_T1 = get_cost_vectors(cost, reg_type, subpath2, 'hrT1') # T1 to MNI
             global_cost_vector_hcpya_T2, local_cost_vector_hcpya_T2 = get_cost_vectors(cost, reg_type, subpath2, 'hrT2') # T2 to MNI
             
-            combine_cost_vector_T1_val.append(local_cost_vector_hcpya_T1)
-            combine_cost_vector_T2_val.append(local_cost_vector_hcpya_T2)
+            if local:
+                combine_cost_vector_T1_val.append(local_cost_vector_hcpya_T1)
+                combine_cost_vector_T2_val.append(local_cost_vector_hcpya_T2)
+            else:
+                combine_cost_vector_T1_val.append(global_cost_vector_hcpya_T1)
+                combine_cost_vector_T2_val.append(global_cost_vector_hcpya_T2)
             
             if reg_type == 'align':
                 global_cost_vector_hcpya_T2toT1, local_cost_vector_hcpya_T2toT1 = get_coreg_cost_vectors(cost, subpath2, 'hrT2') # T2 brain to T1 brain (only align)
@@ -519,16 +535,24 @@ if __name__ == '__main__':
             global_test_cost_vector_bigdata_FLAIR, local_test_cost_vector_bigdata_FLAIR = get_test_cost_vectors(cost, reg_type, subpath1, 'hrT2') # FLAIR to MNI
             global_test_cost_vector_bigdata_FLAIRtoT1, local_test_cost_vector_bigdata_FLAIRtoT1 = get_coreg_test_cost_vectors(cost, subpath1, 'hrFLAIR') # FLAIR brain to T1 brain (only align)
             
-            combine_test_cost_vector_T1.append(local_test_cost_vector_bigdata_T1) # T1 test data
-            combine_test_cost_vector_T2.append(local_test_cost_vector_bigdata_FLAIR) # FLAIR test data
+            if local:
+                combine_test_cost_vector_T1.append(local_test_cost_vector_bigdata_T1) # T1 test data
+                combine_test_cost_vector_T2.append(local_test_cost_vector_bigdata_FLAIR) # FLAIR test data
+            else:
+                combine_test_cost_vector_T1.append(global_test_cost_vector_bigdata_T1) # T1 test data
+                combine_test_cost_vector_T2.append(global_test_cost_vector_bigdata_FLAIR) # FLAIR test data
             
             # HCPYA
             global_test_cost_vector_hcpya_T1, local_test_cost_vector_hcpya_T1 = get_test_cost_vectors(cost, reg_type, subpath2, 'hrT1') # T1 to MNI
             global_test_cost_vector_hcpya_T2, local_test_cost_vector_hcpya_T2 = get_test_cost_vectors(cost, reg_type, subpath2, 'hrT2') # T2 to MNI
             global_test_cost_vector_hcpya_T2toT1, local_test_cost_vector_hcpya_T2toT1 = get_coreg_test_cost_vectors(cost, subpath2, 'hrT2') # T2 to T1 (only align)
             
-            combine_test_cost_vector_T1_val.append(local_test_cost_vector_hcpya_T1) # T1 validate data
-            combine_test_cost_vector_T2_val.append(local_test_cost_vector_hcpya_T2) # T2 test data
+            if local:
+                combine_test_cost_vector_T1_val.append(local_test_cost_vector_hcpya_T1) # T1 validate data
+                combine_test_cost_vector_T2_val.append(local_test_cost_vector_hcpya_T2) # T2 test data
+            else:
+                combine_test_cost_vector_T1_val.append(global_test_cost_vector_hcpya_T1) # T1 validate data
+                combine_test_cost_vector_T2_val.append(global_test_cost_vector_hcpya_T2) # T2 test data
             
             if False:
                 ap.plot_cost([local_cost_vector_bigdata_T1, local_test_cost_vector_bigdata_T1], cost,
@@ -552,11 +576,11 @@ if __name__ == '__main__':
                           ['T2-T1', 'T2-T1-test'], f'HCP-YA-Align') # plotting local cost for HCPYA T2
             
             # Computing cut-off point and AUC for normal and test
-            print('doing for Big Data\n')
+            #print('doing for Big Data\n')
             
             #compute_cutoff_auc(global_cost_vector_bigdata_T1, global_test_cost_vector_bigdata_T1, cost, reg_type, 'hrT1', 'global') # T1 to MNI
             #compute_cutoff_auc(local_cost_vector_bigdata_T1, local_test_cost_vector_bigdata_T1, cost, reg_type, 'hrT1', 'local') # T1 to MNI
-            print('----------------------------------------------------------------------------------------------------')
+            #print('----------------------------------------------------------------------------------------------------')
             
             #compute_cutoff_auc(global_cost_vector_bigdata_FLAIR, global_test_cost_vector_bigdata_FLAIR, cost, reg_type, 'hrFLAIR', 'global') # FLAIR to MNI
             if False:
@@ -568,11 +592,11 @@ if __name__ == '__main__':
                 compute_cutoff_auc(local_cost_vector_bigdata_FLAIRtoT1, local_test_cost_vector_bigdata_FLAIRtoT1, cost, 'T1', 'hrFLAIR', 'local') # FLAIR brain to T1 brain
                 print('----------------------------------------------------------------------------------------------------')
             
-            print('doing for HCP-YA\n')
+            #print('doing for HCP-YA\n')
             
             #compute_cutoff_auc(global_cost_vector_hcpya_T1, global_test_cost_vector_hcpya_T1, cost, reg_type, 'hrT1', 'global') # T1 to MNI
             #compute_cutoff_auc(local_cost_vector_hcpya_T1, local_test_cost_vector_hcpya_T1, cost, reg_type, 'hrT1', 'local') # T1 to MNI
-            print('----------------------------------------------------------------------------------------------------')
+            #print('----------------------------------------------------------------------------------------------------')
             
             #compute_cutoff_auc(global_cost_vector_hcpya_T2, global_test_cost_vector_hcpya_T2, cost, reg_type, 'hrT2', 'global') # T2 to MNI
             if False:
@@ -584,8 +608,8 @@ if __name__ == '__main__':
                 compute_cutoff_auc(local_cost_vector_hcpya_T2toT1, local_test_cost_vector_hcpya_T2toT1, cost, 'T1', 'hrT2', 'local') # T2 brain to T1 brain
         
         # calling combinational_cost method to design a classifier 
-        combinational_cost(combine_cost_vector_T1, combine_test_cost_vector_T1, combine_cost_vector_T1_val, combine_test_cost_vector_T1_val, reg_type, 'T1', 5, 10)
-        #combinational_cost(combine_cost_vector_T2, combine_test_cost_vector_T2, combine_cost_vector_T2_val, combine_test_cost_vector_T2_val, reg_type, 'T2', 5, 10) 
+        combinational_cost(combine_cost_vector_T1, combine_test_cost_vector_T1, combine_cost_vector_T1_val, combine_test_cost_vector_T1_val, reg_type, 'T1', 5, 1)
+        #combinational_cost(combine_cost_vector_T2, combine_test_cost_vector_T2, combine_cost_vector_T2_val, combine_test_cost_vector_T2_val, reg_type, 'T2', 5, 1) 
         #combinational_cost(combine_cost_vector_T2, combine_test_cost_vector_T2, reg_type, 'T2', 5)
         #combinational_cost(combine_cost_vector_FLAIR, combine_test_cost_vector_FLAIR, reg_type, 'FLAIR', 5)
         
