@@ -7,6 +7,7 @@ import pandas as pd
 import scipy.stats
 import nibabel as nib
 import nipype_all_functions as naf
+import compute_cost_main as ccm
 
 def get_file_name_and_extension(infile):
     '''
@@ -44,19 +45,21 @@ def compute_weight(refimage, movingimage):
     '''
     non_zeros = np.maximum(np.count_nonzero(refimage), np.count_nonzero(movingimage)) # generally, the number of non-zeros are same in both volume of interests.
     
-    weight = 1/(1+(1000*np.exp(-non_zeros))) 
+    weight = 1/(1+(np.power(10, ccm.voi_size)*np.exp(-non_zeros))) 
     
     return weight
    
 ## cost functions for checking goodness of registraitons
 
-# 1. Sum of squared differences(SSD)
+# 1. Sum of Squared Differences(SSD)
 def ssd(refimage, movingimage):
     
     if refimage.shape != movingimage.shape:
         print('images shape mismatch')
     else:
-        return compute_weight(refimage, movingimage)*np.sum((np.ndarray.flatten(refimage)-np.ndarray.flatten(movingimage))**2)
+        ssd_value = compute_weight(refimage, movingimage)*np.sum((np.ndarray.flatten(refimage)-np.ndarray.flatten(movingimage))**2)
+        
+        return 1/(ssd_value+1)
     
 # 2. Cross Correlation 
 def cc(refimage, movingimage):
