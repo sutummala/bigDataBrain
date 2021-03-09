@@ -6,7 +6,7 @@ import all_plots as ap
 import numpy as np
 from sklearn import metrics
 from sklearn.model_selection import StratifiedKFold, RepeatedStratifiedKFold, cross_val_score, train_test_split
-from sklearn.preprocessing import MinMaxScaler, MaxAbsScaler, StandardScaler, PowerTransformer, QuantileTransformer
+from sklearn.preprocessing import MinMaxScaler, MaxAbsScaler, StandardScaler, RobustScaler, PowerTransformer, QuantileTransformer
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QDA
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier
@@ -17,12 +17,13 @@ from sklearn.neighbors import KNeighborsClassifier as kNN
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import pickle
+from mpl_toolkits.mplot3d import Axes3D
 
 plt.rcParams.update({'font.size': 22})
-subpath1 = '/home/tummala/data/HCP-100'
-#subpath1 = '/media/tummala/TUMMALA/Work/Data/ABIDE-crossval'
+subpath2 = '/home/tummala/data/HCP-100'
+subpath1 = '/media/tummala/TUMMALA/Work/Data/ABIDE-crossval'
 #subpath2 = '/media/tummala/TUMMALA/Work/Data/ABIDE-validate'
-subpath2 = '/home/tummala/data/HCP-100re'
+#subpath2 = '/home/tummala/data/HCP-100re'
 
 voi_size = 7
 step_size = 7 # stride
@@ -289,13 +290,50 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
     # combining data1 and data2 and the corresponding labels    
     X = np.concatenate((X_normal, X_misaligned))
     y = np.concatenate((x_normal_label, x_misaligned_label))
-       
+    
+    visualize_costs = 1 # This will do a 3D plot to visualize the costs
+    standardize = 0 # To rescale the data for visualization
+    
+    X1 = X # Making a copy for standardization
+    
+    if visualize_costs:
+        fig = plt.figure()
+        ax = Axes3D(fig, rect=[0, 0, .95, 1], elev = 48, azim = 134)
+        #ax = fig.add_subplot(111, projection='3d')
+        if standardize:
+            X1 = StandardScaler().fit_transform(X1)
+            
+        ax.scatter(X1[:, 0], X1[:, 1], X1[:, 2], c = y.astype(float), edgecolor = 'k')
+        #ax.scatter(X_misaligned[:, 0], X_misaligned[:, 1], X_misaligned[:, 2], c='g', marker='+')
+        
+        #ax.text3D(X[y == 1, 0].mean(), X[y == 1, 1].mean(), X[y == 1, 2].mean(), 'misaligned', horizontalalignment='center', bbox=dict(alpha=.2, edgecolor='w', facecolor='w'))
+        
+        ax.w_xaxis.set_ticklabels([])
+        ax.w_yaxis.set_ticklabels([])
+        ax.w_zaxis.set_ticklabels([])
+        ax.set_xlabel('NCC')
+        ax.set_ylabel('NMI')
+        ax.set_zlabel('CR')
+        ax.dist = 12
+        plt.show()
+        
+    print('before scaling')
+    for a in range(3):
+        print(np.min(X[:, a]), np.mean(X[:, a]), np.max(X[:, a]), np.min(X_val[:, a]), np.mean(X_val[:, a]), np.max(X_val[:, a]))
+        
     # scaling the costs (features) to make sure the ranges of individual features are same to avoid the effect of features that have relatively large values. It may not be necessary in this case as all these 3 costs lie between 0 and 1  
     #scale = QuantileTransformer(n_quantiles = 10, output_distribution = 'uniform') # Subtracting the mean and dividing with standard deviation
     scale = StandardScaler()
-    X = scale.fit_transform(X)
-    X_val = scale.fit_transform(X_val) # fit_transform is necessary here instead of just transform
+    scale_test = StandardScaler()
     
+    # scale.fit(X)
+    # X = scale.transform(X)
+    
+    X_val = scale_test.fit_transform(X_val) # fit_transform is necessary here instead of just transform
+    
+    print('after scaling')
+    for a in range(3):
+        print(np.min(X[:, a]), np.median(X[:, a]), np.max(X[:, a]), np.min(X_val[:, a]), np.median(X_val[:, a]), np.max(X_val[:, a]))
     # X = np.concatenate((X, X_val))
     # y = np.concatenate((y, y_val))
     
@@ -327,6 +365,9 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
     for train_index, test_index in folds.split(X, y):
         
         X_train, X_test, y_train, y_test = X[train_index], X[test_index], y[train_index], y[test_index]
+        
+        X_train = scale.fit_transform(X_train)
+        X_test = scale.transform(X_test)
         
         #X_train, X_test, y_train, y_test = train_test_split(X_1, y_1, test_size = 0.20, stratify = y_1, shuffle = True)
     
@@ -418,7 +459,10 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
         os.makedirs(save_model)
     
     # saving the trained model, e.g. shown for saving ada boost classifier model and minmax scaling model
-    pickle.dump(scale.fit(X), open(save_model+'/'+'scale_'+reg_type+image_tag, 'wb'))
+    scale_all = StandardScaler().fit(X)
+    X = scale_all.transform(X)
+    
+    pickle.dump(scale_all, open(save_model+'/'+'scale_'+reg_type+image_tag, 'wb'))
     pickle.dump(LDA(solver = 'eigen', shrinkage = 'auto', n_components = 1).fit(X, y), open(save_model+'/'+'lda_'+reg_type+image_tag, 'wb'))
     pickle.dump(QDA().fit(X, y), open(save_model+'/'+'qda_'+reg_type+image_tag, 'wb'))
     pickle.dump(RandomForestClassifier(criterion = 'gini', n_estimators = 100).fit(X, y), open(save_model+'/'+'rfc_'+reg_type+image_tag, 'wb'))
@@ -475,7 +519,7 @@ if __name__ == '__main__':
     costs = ['ncc', 'nmi', 'cor']
     reg_types = ['align', 'mni']
     
-    local = True
+    local = 1 # to choose local (1) or global (0) costs
 
     for reg_type in reg_types:
         combine_cost_vector_T1 = []
