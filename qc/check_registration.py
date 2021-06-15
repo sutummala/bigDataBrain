@@ -27,7 +27,7 @@ subpath1 = '/home/tummala/data/HCP-100'
 #subpath2 = '/media/tummala/TUMMALA/Work/Data/ABIDE-failed'
 #subpath2 = '/media/tummala/TUMMALA/Work/Data/ABIDE-validate'
 #subpath2 = '/home/tummala/data/HCP-100re'
-subpath2 = '/media/tummala/TUMMALA/Work/Data/IXI-Re'
+subpath2 = '/media/tummala/TUMMALA/Work/Data/ABIDE-failed'
 
 voi_size = 7
 step_size = 7 # stride
@@ -550,13 +550,13 @@ def combinational_cost(data1, data2, data3, data4, reg_type, image_tag, no_of_fo
                     local_cost_vector.append(cost_data[1])
         
         if not local_cost_vector:
-            print(f'cost vector is empty for {subject}')
+            print(f'No {image_tag} image for {subject}')
             continue
         sample = np.reshape(np.array(local_cost_vector), (1,3))
-        reg_quality = gridCV_rfc.predict_proba(sample)[0][0]*100
+        reg_quality = gridCV_knn.predict_proba(sample)[0][0]*100
         
         if reg_quality < 50:
-            print(f'Quality of {reg_type} registration for {subject} using RFC is {reg_quality}')
+            print(f'Quality of {reg_type} registration for {subject} using kNN Classifier is {reg_quality}')
         
     
     if False:

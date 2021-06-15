@@ -3,7 +3,7 @@
 
 import os
 import concurrent.futures
-#from functools import partial
+from functools import partial
 from multiprocessing import cpu_count
 import compute_reg_cost_grid as crcg
 import gen_test_images_compute_reg_cost_grid as gticrcg
@@ -12,7 +12,7 @@ import gen_test_images_compute_reg_cost_grid as gticrcg
 #data_dir = '/media/tummala/TUMMALA/Work/Data/IXI-Re' # Path to the subjects data directory
 #data_dir = '/media/tummala/SeagateBackupPlusDrive/Project/IXI-Re'
 #data_dir = '/home/tummala/data/HCP-100re'
-data_dir = '/media/tummala/TUMMALA/Work/Data/ABIDE-validate'
+data_dir = '/media/tummala/TUMMALA/Work/Data/HCP-YAre'
 subjects = sorted(os.listdir(data_dir)) # Finds subjects in the data directory
 print('Found', len(subjects), 'Subjects\n')
 
@@ -20,11 +20,11 @@ print('Found', len(subjects), 'Subjects\n')
 workers = cpu_count() # this could be cpu_count() [maximum number of cores available in the machine]
 print(f'workers are: {workers}\n')
 voi_size = 9
-stride = 9
+stride = voi_size
 no_of_test_images = 5
 
 
-def process_subject(data_dir, subject, voi_size, stride, no_of_test_images):
+def process_subject(data_dir, subject):
     '''
     Parameters
     ----------
@@ -44,6 +44,6 @@ def process_subject(data_dir, subject, voi_size, stride, no_of_test_images):
 
 if __name__ == '__main__':        
     with concurrent.futures.ProcessPoolExecutor(max_workers = workers) as executor:
-        #executor.map(partial(process_subject, data_dir), subjects, voi_size, stride, no_of_test_images)
-        executor.map(process_subject, subjects, data_dir, voi_size, stride, no_of_test_images) # This could also be used to avoid 'partial'
+        executor.map(partial(process_subject, data_dir), subjects)
+        #executor.map(process_subject, subjects, data_dir) # This could also be used to avoid 'partial'
       
