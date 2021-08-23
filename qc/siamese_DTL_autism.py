@@ -121,10 +121,11 @@ y_true = np.concatenate((y_cor, y_incor))
 X = np.concatenate((Healthy, Autism))
 #X = X.reshape(list(X.shape) + [1])
 
-# Generate pairs
+# Generate pairs and labels
 left_input, right_input, autism_targets = generate_pairs(X, y_true)
 
 print(np.shape(left_input))
+
 np.save('/home/tummala/data', left_input)
 np.save('/home/tummala/data', right_input)
 np.save('/home/tummala/data', autism_targets)
